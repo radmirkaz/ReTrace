@@ -1,0 +1,96 @@
+import { useRevealProgress, useTicker, ease } from '../hooks'
+
+const PLATES = [
+  { plate: 'LKX 492', blur: 0, label: 'Readable — on a good day', color: '#12304f' },
+  { plate: 'LKX 492', blur: 6, label: 'Covered in mud or snow', color: '#12304f' },
+  { plate: 'GRT 118', blur: 0, label: 'Swapped from another car', color: '#b45309' },
+  { plate: '??? ???', blur: 0, label: 'The witness never saw it', color: '#9ca3af' },
+]
+
+const card: React.CSSProperties = { padding: 24, borderRadius: 12, border: '1px solid var(--line)', background: 'var(--panel)' }
+
+export default function Problem() {
+  const [ref, p] = useRevealProgress<HTMLElement>()
+  const t = useTicker(100)
+  const e = ease(p / 0.8)
+  const dots = Math.round(169 * ease((p - 0.3) / 0.7))
+  const plate = PLATES[Math.floor(t / 18) % PLATES.length]
+
+  return (
+    <section id="problem" ref={ref} className="wrap" style={{ padding: "120px 28px 100px" }}>
+      <div className="label" style={{ color: 'var(--rose)' }}>00 — The problem</div>
+      <h2 style={{ fontSize: 'clamp(38px, 5vw, 60px)', lineHeight: 1.02, letterSpacing: -2, margin: '14px 0 18px', maxWidth: 940 }}>
+        In Canada, a car is stolen <span style={{ color: 'var(--rose)' }}>every five minutes.</span> Hit-and-run drivers simply drive away.
+      </h2>
+      <p style={{ fontSize: 19, lineHeight: 1.55, color: 'var(--muted)', maxWidth: 760, margin: '0 0 48px' }}>
+        Cameras are scarce, rarely recorded, and built around licence plates — the one thing a thief changes first and a
+        hit-and-run witness never catches. What people <em>do</em> remember is the car.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 1, background: 'var(--line)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+        {[
+          [Math.round(105000 * e).toLocaleString('en-US'), 'vehicles stolen in Canada in 2022'],
+          [`C$${(1.5 * e).toFixed(1)}B`, 'in theft claims — called a “national crisis” by insurers'],
+          [String(Math.round(221 * e)), 'traffic cameras for 710,000 people in Vancouver'],
+        ].map(([v, l]) => (
+          <div key={l} style={{ background: '#070b12', padding: 28 }}>
+            <div style={{ fontSize: 52, fontWeight: 700, letterSpacing: -2 }}>{v}</div>
+            <div style={{ color: '#93a4b8', marginTop: 6 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+        <div style={card}>
+          <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Cameras per 10,000 people</div>
+          <Row name="Moscow" value="169" />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {Array.from({ length: 169 }, (_, i) => (
+              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--faint)', opacity: i < dots ? 1 : 0.12 }} />
+            ))}
+          </div>
+          <Row name="Vancouver" value="3" color="var(--rose)" />
+          <div style={{ display: 'flex', gap: 3 }}>
+            {[0, 1, 2].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--rose)' }} />)}
+          </div>
+        </div>
+
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Plates fail</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px 0' }}>
+            <div style={{ width: 220, padding: '10px 12px 12px', borderRadius: 8, background: '#f4f4f5', color: '#12304f', textAlign: 'center', boxShadow: 'inset 0 0 0 3px #12304f' }}>
+              <div style={{ fontSize: 10, letterSpacing: 2, fontWeight: 700 }}>BRITISH COLUMBIA</div>
+              <div className="mono" style={{ fontSize: 40, fontWeight: 600, letterSpacing: 2, filter: `blur(${plate.blur}px)`, color: plate.color, transition: 'filter .4s' }}>{plate.plate}</div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', fontSize: 15 }}>{plate.label}</div>
+        </div>
+
+        <div style={card}>
+          <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Feeds aren’t kept</div>
+          <div style={{ position: 'relative', margin: '16px 0 12px', aspectRatio: '16 / 9', borderRadius: 6, overflow: 'hidden', background: '#111b28' }}>
+            <img src="/cache/clips/hwy1-boundary.jpg" alt="Traffic camera still" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1)', opacity: 0.6 }} />
+            <span className="chip" style={{ position: 'absolute', left: 8, top: 8 }}>STILL · DELAYED</span>
+            <span className="chip blink" style={{ position: 'absolute', right: 8, top: 8, border: '1px solid var(--rose)', color: 'var(--rose)' }}>NOT RECORDED</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 4, background: 'repeating-linear-gradient(135deg, var(--line) 0 6px, var(--panel) 6px 12px)' }} />
+          <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--faint)', marginTop: 6 }}>
+            <span>21:00</span><span>NO ARCHIVE</span><span>NOW</span>
+          </div>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 28, lineHeight: 1.3, margin: '56px 0 0', maxWidth: 840 }}>
+        ReTrace doesn’t need the plate. <span style={{ color: 'var(--teal)' }}>It remembers the car.</span>
+      </p>
+    </section>
+  )
+}
+
+function Row({ name, value, color = '#93a4b8' }: { name: string; value: string; color?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', margin: '16px 0 8px', fontSize: 14 }}>
+      <span>{name}</span><span className="mono" style={{ color }}>{value}</span>
+    </div>
+  )
+}

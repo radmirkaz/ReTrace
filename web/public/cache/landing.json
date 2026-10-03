@@ -1,0 +1,111 @@
+{
+ "scenes": [
+  {
+   "cam": "hwy1-boundary",
+   "title": "Overpass",
+   "sub": "Looking down the lanes from ~8 m.",
+   "clip": "clips/hwy1-boundary.mp4",
+   "tracks": "tracks/hwy1-boundary.json",
+   "poster": "clips/hwy1-boundary.jpg",
+   "res": "960x540"
+  },
+  {
+   "cam": "main-kingsway",
+   "title": "Pole camera",
+   "sub": "An old city CCTV corner cam \u2014 800\u00d7600.",
+   "clip": "clips/main-kingsway.mp4",
+   "tracks": "tracks/main-kingsway.json",
+   "poster": "clips/main-kingsway.jpg",
+   "res": "960x720"
+  },
+  {
+   "cam": "knight-bridge",
+   "title": "Dusk, dense traffic",
+   "sub": "Low sun, glare and heavy occlusion.",
+   "clip": "clips/knight-bridge.mp4",
+   "tracks": "tracks/knight-bridge.json",
+   "poster": "clips/knight-bridge.jpg",
+   "res": "960x540"
+  },
+  {
+   "cam": "oak-bridge",
+   "title": "Long range, low-res",
+   "sub": "Small, distant vehicles at 720p.",
+   "clip": "clips/oak-bridge.mp4",
+   "tracks": "tracks/oak-bridge.json",
+   "poster": "clips/oak-bridge.jpg",
+   "res": "960x540"
+  }
+ ],
+ "trace": {
+  "cam": "knight-bridge",
+  "clip": "clips/knight-bridge.mp4",
+  "tracks": "tracks/knight-bridge.json",
+  "poster": "clips/knight-bridge.jpg",
+  "track": 8,
+  "t": 0.0,
+  "vehicle": "knight-bridge:8"
+ },
+ "witness": {
+  "transcript": "It was a white sedan, maybe a BMW. It hit the cyclist and kept going east on Kingsway, around nine-thirty.",
+  "query": "a white sedan car",
+  "hits": [
+   {
+    "gid": "knight-bridge:8",
+    "cam": "knight-bridge",
+    "track": 8,
+    "crop": "crops/knight-bridge_8.jpg",
+    "score": 0.2959
+   },
+   {
+    "gid": "oak-bridge:4",
+    "cam": "oak-bridge",
+    "track": 4,
+    "crop": "crops/oak-bridge_4.jpg",
+    "score": 0.266
+   },
+   {
+    "gid": "hwy1-boundary:4",
+    "cam": "hwy1-boundary",
+    "track": 4,
+    "crop": "crops/hwy1-boundary_4.jpg",
+    "score": 0.2621
+   },
+   {
+    "gid": "knight-bridge:7",
+    "cam": "knight-bridge",
+    "track": 7,
+    "crop": "crops/knight-bridge_7.jpg",
+    "score": 0.2583
+   },
+   {
+    "gid": "oak-bridge:17",
+    "cam": "oak-bridge",
+    "track": 17,
+    "crop": "crops/oak-bridge_17.jpg",
+    "score": 0.2574
+   },
+   {
+    "gid": "knight-bridge:1",
+    "cam": "knight-bridge",
+    "track": 1,
+    "crop": "crops/knight-bridge_1.jpg",
+    "score": 0.2548
+   },
+   {
+    "gid": "oak-bridge:19",
+    "cam": "oak-bridge",
+    "track": 19,
+    "crop": "crops/oak-bridge_19.jpg",
+    "score": 0.2515
+   },
+   {
+    "gid": "knight-bridge:22",
+    "cam": "knight-bridge",
+    "track": 22,
+    "crop": "crops/knight-bridge_22.jpg",
+    "score": 0.2477
+   }
+  ]
+ }
+}

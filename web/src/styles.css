@@ -1,0 +1,70 @@
+:root {
+  --bg: #05070b;
+  --panel: #0a0f16;
+  --panel-2: #0e1520;
+  --line: #1b2533;
+  --line-2: #2a3a4e;
+  --text: #e6edf5;
+  --muted: #b3c1d1;
+  --dim: #7d8da1;
+  --faint: #5b6b80;
+  --teal: #5eead4;
+  --teal-ink: #042f2c;
+  --amber: #fbbf24;
+  --amber-ink: #1f1300;
+  --violet: #a78bfa;
+  --rose: #f43f5e;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+body { overflow-x: clip; -webkit-font-smoothing: antialiased; }
+a { color: var(--teal); }
+a:hover { color: #99f6e4; }
+button { font: inherit; color: inherit; }
+img, video { display: block; max-width: 100%; }
+
+.mono { font-family: var(--mono); }
+.label { font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+.wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0 28px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+  padding: 12px 20px; border-radius: 6px; border: 1px solid var(--line-2);
+  background: transparent; color: var(--text); text-decoration: none; cursor: pointer;
+  font-weight: 500; transition: border-color .2s, background .2s;
+}
+.btn:hover { border-color: var(--teal); color: var(--text); }
+.btn-primary { background: var(--teal); color: var(--teal-ink); border-color: var(--teal); font-weight: 700; }
+.btn-primary:hover { background: #99f6e4; color: var(--teal-ink); }
+
+.chip {
+  font-family: var(--mono); font-size: 11px; padding: 4px 8px; border-radius: 4px;
+  background: rgba(5, 7, 11, .8); color: var(--muted);
+}
+
+.blink { animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: .2; } }
+
+.grid-bg {
+  background-image: linear-gradient(rgba(94, 234, 212, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(94, 234, 212, .07) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Box overlay used on every video */
+.bbox { position: absolute; border: 1.5px solid var(--teal); background: rgba(94, 234, 212, .07); }
+.bbox > span {
+  position: absolute; left: -1.5px; bottom: 100%; margin-bottom: 2px; white-space: nowrap;
+  background: var(--teal); color: var(--teal-ink); font-family: var(--mono); font-size: 10px; padding: 1px 4px;
+}
+.bbox.target { border-color: var(--amber); border-width: 2px; background: rgba(251, 191, 36, .08); }
+.bbox.target > span { background: var(--amber); color: var(--amber-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.scene { height: 100%; width: auto; max-width: 100%; }

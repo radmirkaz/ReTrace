@@ -1,0 +1,9 @@
+demo_footage/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.*
+.DS_Store
+pipeline/map/vancouver_osm.json
