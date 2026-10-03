@@ -36,7 +36,11 @@ CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")  # baseline project: re-ID weig
 WEB = ROOT / "demo_footage" / "web"
 LIVE = ROOT / "demo_footage" / "live"
 CACHE = ROOT / "web" / "public" / "cache"
-REID_WEIGHTS = CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt"
+REID_WEIGHTS = CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt"  # make/model names (9,630 classes)
+REID_EMBED_WEIGHTS = CANAI / "submission" / "reid" / "pretrain" / "v24.pt.sd"  # image-to-image re-ID (5,445-class head unused)
+# "v24" = re-ID embedding from v24 only; "ensemble" = mean of v24 and ep6_v8 embeddings
+# (pipeline/eval_reid.py on CityFlowV2: v24 mAP 67.4%, ensemble 73.3%).
+REID_EMBED = "v24"
 CLASS_META = CANAI / "submission" / "notebooks" / "llm_data_9630_classes.json"
 CLIP_MODEL = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -116,6 +120,10 @@ class Models:
         ckpt = torch.load(REID_WEIGHTS, map_location=DEVICE)
         self.reid.load_state_dict(ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) else ckpt)
         self.reid.to(DEVICE).eval()
+        self.embedder = src.models.classifier.EffNetv2(class_num=5445, features_dim=2048, model_name="m", mix_prec=True)
+        sd = torch.load(REID_EMBED_WEIGHTS, map_location=DEVICE)
+        self.embedder.load_state_dict(sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd)
+        self.embedder.to(DEVICE).eval()
         self.tf = T.Compose([T.Resize((300, 300)), T.ToTensor(), T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         from transformers import CLIPModel, CLIPProcessor
         self.clip = CLIPModel.from_pretrained(CLIP_MODEL).to(DEVICE).eval()
@@ -144,7 +152,8 @@ def index(M, src_dir, spec_name, out):
         shutil.copy(WEB_ / f"{cid}.json", out / "tracks" / f"{cid}.json")
         shutil.copy(WEB_ / f"{cid}.jpg", out / "clips" / f"{cid}.jpg")
         if cid in LOCATIONS:  # real intersection from OSM (pipeline/map/locate_cameras.py)
-            cam = {**cam, "lat": LOCATIONS[cid][0], "lon": LOCATIONS[cid][1]}
+            loc = LOCATIONS[cid]
+            cam = {**cam, "lat": loc[0], "lon": loc[1], **({"name": loc[2]} if len(loc) > 2 else {})}
         cameras.append({**cam, "res": f"{hi_tracks['w']}x{hi_tracks['h']}", "clip": f"{rel}clips/{cid}.mp4",
                         "tracks": f"{rel}tracks/{cid}.json", "poster": f"{rel}clips/{cid}.jpg"})
 
@@ -156,10 +165,15 @@ def index(M, src_dir, spec_name, out):
                 continue
             rgbs = [Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB)) for c in pick["crops"]]
             with torch.no_grad():
-                logits, feats = reid(torch.stack([tf(r) for r in rgbs]).to(DEVICE))
+                batch = torch.stack([tf(r) for r in rgbs]).to(DEVICE)
+                logits, feats = reid(batch)
                 probs = (F.softmax(logits.float(), dim=1) * priors)
                 probs = (probs / probs.sum(dim=1, keepdim=True)).mean(0)
-                feat = F.normalize(F.normalize(feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
+                _, v24_feats = M.embedder(batch)
+                feat = F.normalize(F.normalize(v24_feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
+                if REID_EMBED == "ensemble":
+                    own = F.normalize(F.normalize(feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
+                    feat = F.normalize(feat + own, dim=0)
                 ci = clip_model.get_image_features(**clip_proc(images=rgbs[0], return_tensors="pt").to(DEVICE))
             top = torch.topk(probs, 5)
             gid = f"{cid}:{tid}"
@@ -247,6 +261,9 @@ def main():
         "vehicles": vehicles,
     }
     (CACHE / "landing.json").write_text(json.dumps(landing))
+    ev = ROOT / "demo_footage" / "eval_reid.json"
+    if ev.exists():
+        (CACHE / "metrics.json").write_text(json.dumps({"reid_cityflow_s01": json.loads(ev.read_text()), "reid_embedding_in_use": REID_EMBED}, indent=1))
     print(json.dumps({"witness_top": hits[:3], "trace": landing["trace"]["vehicle"]}, indent=1))
 
 

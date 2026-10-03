@@ -4,10 +4,9 @@
 
 An intersection is the node shared by the two named streets (closest pair of points as a
 fallback); a bridge camera sits at the middle of the bridge span. Roundabout cameras are
-spread ~35 m around their intersection, one per approach.
+placed along Cambie St as a corridor.
 """
 import json
-import math
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -28,10 +27,19 @@ CROSS = {
     "kingsway-victoria": ("Kingsway", "Victoria Drive"),
     "kingsway-nanaimo": ("Kingsway", "Nanaimo Street"),
     "kingsway-joyce": ("Kingsway", "Joyce Street"),
-    "cambie-king-edward": ("Cambie Street", "King Edward Avenue"),
+    "cambie-king-edward-n": ("Cambie Street", "West Broadway"),
+    "cambie-king-edward-e": ("Cambie Street", "West 16th Avenue"),
+    "cambie-king-edward-s": ("Cambie Street", "King Edward Avenue"),
+    "cambie-king-edward-w": ("Cambie Street", "West 33rd Avenue"),
+}
+# Display names that differ from the export spec (the four RoundaboutHD feeds form a Cambie St corridor).
+NAMES = {
+    "cambie-king-edward-n": "Cambie St & Broadway",
+    "cambie-king-edward-e": "Cambie St & 16th Ave",
+    "cambie-king-edward-s": "Cambie St & King Edward Ave",
+    "cambie-king-edward-w": "Cambie St & 33rd Ave",
 }
 BRIDGES = {"knight-bridge": "Knight", "oak-bridge": "Oak Street", "lions-gate": "Lions Gate"}
-ROUNDABOUT = {"cambie-king-edward-n": (1, 0), "cambie-king-edward-e": (0, 1), "cambie-king-edward-s": (-1, 0), "cambie-king-edward-w": (0, -1)}
 
 
 def main():
@@ -72,11 +80,9 @@ def main():
         locs[cid] = [round(lat, 6), round(lon, 6)]
         print(f"{cid:22} {lat:.5f} {lon:.5f}  (bridge mid-span)")
 
-    if "cambie-king-edward" in locs:
-        lat, lon = locs.pop("cambie-king-edward")
-        d = 35 / 111_000
-        for cid, (dn, de) in ROUNDABOUT.items():
-            locs[cid] = [round(lat + dn * d, 6), round(lon + de * d / math.cos(math.radians(lat)), 6)]
+    for cid, name in NAMES.items():
+        if cid in locs:
+            locs[cid].append(name)
     (HERE / "camera_locations.json").write_text(json.dumps(locs, indent=1))
     print(len(locs), "camera locations")
 

@@ -59,6 +59,26 @@
   49.234128,
   -123.035941
  ],
+ "cambie-king-edward-n": [
+  49.263151,
+  -123.114956,
+  "Cambie St & Broadway"
+ ],
+ "cambie-king-edward-e": [
+  49.256911,
+  -123.114999,
+  "Cambie St & 16th Ave"
+ ],
+ "cambie-king-edward-s": [
+  49.248935,
+  -123.115317,
+  "Cambie St & King Edward Ave"
+ ],
+ "cambie-king-edward-w": [
+  49.24108,
+  -123.11831,
+  "Cambie St & 33rd Ave"
+ ],
  "knight-bridge": [
   49.204963,
   -123.077418
@@ -70,21 +90,5 @@
  "lions-gate": [
   49.323792,
   -123.130883
- ],
- "cambie-king-edward-n": [
-  49.24925,
-  -123.115317
- ],
- "cambie-king-edward-e": [
-  49.248935,
-  -123.114834
- ],
- "cambie-king-edward-s": [
-  49.24862,
-  -123.115317
- ],
- "cambie-king-edward-w": [
-  49.248935,
-  -123.1158
  ]
 }
