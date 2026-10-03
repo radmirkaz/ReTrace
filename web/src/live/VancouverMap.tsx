@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Camera } from '../data'
 
 // City of Vancouver bounding box (lon/lat).
@@ -19,12 +19,39 @@ const COND: Record<Camera['condition'], string> = { day: '#5eead4', dusk: '#fbbf
 interface Props {
   cameras: Camera[]
   selected?: string
+  /** Ordered route (camera ids) of the tracked vehicle — drawn as numbered steps. */
   highlight?: string[]
+  /** Cameras to zoom the map onto; empty = whole city. */
+  focus?: string[]
   onSelect: (id: string) => void
 }
 
+type VB = [number, number, number, number]
+
+/** Animate the SVG viewBox towards `target` so zooming feels like a camera move, not a jump. */
+function useViewBox(target: VB): VB {
+  const [vb, setVb] = useState<VB>(target)
+  const from = useRef<VB>(target)
+  useEffect(() => {
+    const start = performance.now()
+    const a = from.current
+    let raf = 0
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / 650)
+      const e = 1 - Math.pow(1 - k, 3)
+      const next = a.map((v, i) => v + (target[i] - v) * e) as VB
+      from.current = next
+      setVb(next)
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  return vb
+}
+
 /** Stylised Vancouver: OpenStreetMap water/roads from /map/vancouver.json, or a city-grid fallback. */
-export default function VancouverMap({ cameras, selected, highlight = [], onSelect }: Props) {
+export default function VancouverMap({ cameras, selected, highlight = [], focus = [], onSelect }: Props) {
   const [map, setMap] = useState<MapData | null>(null)
   const [hover, setHover] = useState<string>()
   useEffect(() => { fetch('/map/vancouver.json').then((r) => (r.ok ? r.json() : null)).then(setMap).catch(() => setMap(null)) }, [])
@@ -32,8 +59,23 @@ export default function VancouverMap({ cameras, selected, highlight = [], onSele
   const layers = useMemo(() => (map ? { water: path(map.water, true), parks: path(map.parks ?? [], true), major: path(map.major), minor: path(map.minor), coast: path(map.coast ?? []) } : null), [map])
   const trail = highlight.map((id) => cameras.find((c) => c.id === id)).filter(Boolean) as Camera[]
 
+  const target = useMemo<VB>(() => {
+    const pts = focus.map((id) => cameras.find((c) => c.id === id)).filter(Boolean).map((c) => px(c!.lon, c!.lat))
+    if (!pts.length) return [0, 0, W, H]
+    const xs = pts.map((p) => p[0])
+    const ys = pts.map((p) => p[1])
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+    const w = Math.max(260, (Math.max(...xs) - Math.min(...xs)) * 1.6)
+    const h = Math.max(260 * (H / W), (Math.max(...ys) - Math.min(...ys)) * 1.6)
+    const span = Math.max(w, h * (W / H))
+    return [cx - span / 2, cy - (span * H / W) / 2, span, span * H / W]
+  }, [focus.join(','), cameras]) // eslint-disable-line react-hooks/exhaustive-deps
+  const vb = useViewBox(target)
+  const ui = vb[2] / W // keeps markers and labels the same size on screen while zoomed
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', display: 'block' }} role="img" aria-label="Map of Vancouver with camera locations">
+    <svg viewBox={vb.join(' ')} preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', display: 'block' }} role="img" aria-label="Map of Vancouver with camera locations">
       <defs>
         <pattern id="vm-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="rgba(94,234,212,.05)" /></pattern>
         <radialGradient id="vm-glow"><stop offset="0" stopColor="rgba(94,234,212,.35)" /><stop offset="1" stopColor="rgba(94,234,212,0)" /></radialGradient>
@@ -56,8 +98,8 @@ export default function VancouverMap({ cameras, selected, highlight = [], onSele
       )}
 
       {trail.length > 1 && (
-        <polyline points={trail.map((c) => px(c.lon, c.lat).join(',')).join(' ')} fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeDasharray="6 6">
-          <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
+        <polyline points={trail.map((c) => px(c.lon, c.lat).join(',')).join(' ')} fill="none" stroke="#fbbf24" strokeWidth={3 * ui} strokeDasharray={`${8 * ui} ${6 * ui}`} strokeLinecap="round">
+          <animate attributeName="stroke-dashoffset" from={28 * ui} to="0" dur="1s" repeatCount="indefinite" />
         </polyline>
       )}
 
@@ -67,13 +109,19 @@ export default function VancouverMap({ cameras, selected, highlight = [], onSele
         const hit = highlight.includes(c.id)
         const col = hit ? '#fbbf24' : COND[c.condition]
         return (
-          <g key={c.id} transform={`translate(${x} ${y})`} style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(c.id)} onMouseLeave={() => setHover(undefined)} onFocus={() => setHover(c.id)} onBlur={() => setHover(undefined)} onClick={() => onSelect(c.id)} role="button" tabIndex={0} aria-label={c.name} onKeyDown={(e) => { if (e.key === 'Enter') onSelect(c.id) }}>
+          <g key={c.id} transform={`translate(${x} ${y}) scale(${ui})`} style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(c.id)} onMouseLeave={() => setHover(undefined)} onFocus={() => setHover(c.id)} onBlur={() => setHover(undefined)} onClick={() => onSelect(c.id)} role="button" tabIndex={0} aria-label={c.name} onKeyDown={(e) => { if (e.key === 'Enter') onSelect(c.id) }}>
             <circle r={on ? 40 : 26} fill="url(#vm-glow)" opacity={on || hit ? 1 : 0.5} />
             <circle r="9" fill="none" stroke={col} strokeWidth="1.5" opacity=".6">
               <animate attributeName="r" from="6" to="22" dur="2.4s" repeatCount="indefinite" />
               <animate attributeName="opacity" from=".7" to="0" dur="2.4s" repeatCount="indefinite" />
             </circle>
             <circle r={on ? 7 : 5} fill={col} stroke="#05070b" strokeWidth="2" />
+            {hit && (
+              <g transform="translate(-11 -30)" style={{ pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="11" fill={on ? '#fbbf24' : '#0a0f16'} stroke="#fbbf24" strokeWidth="2" />
+                <text x="11" y="15.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="12" fontWeight="700" fill={on ? '#1f1300' : '#fbbf24'}>{highlight.indexOf(c.id) + 1}</text>
+              </g>
+            )}
             {(on || hit || hover === c.id) && (
               <text x="12" y="4" fontFamily="JetBrains Mono, monospace" fontSize={13} fill="#e6edf5" style={{ paintOrder: 'stroke', stroke: '#070b12', strokeWidth: 4, pointerEvents: 'none' }}>{c.name}</text>
             )}

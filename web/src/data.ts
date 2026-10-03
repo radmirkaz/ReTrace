@@ -30,7 +30,7 @@ export interface Camera {
 
 export interface Prediction { name: string; p: number }
 
-export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number; verified?: boolean }
+export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number; verified?: boolean; self?: boolean }
 
 export interface Vehicle {
   gid: string
@@ -45,6 +45,10 @@ export interface Vehicle {
   reliable?: boolean
   evidence?: { consistency: number; margin: number; min_side: number; contrast: number; crops: number }
   sightings: Sighting[]
+  /** Ground-truth-confirmed appearances of this same car, in route order (includes itself). */
+  journey?: Sighting[]
+  /** Look-alikes on other cameras — not confirmed to be the same car. */
+  similar?: Sighting[]
 }
 
 export interface SearchHit { gid: string; cam: string; track: number; crop: string; score: number }

@@ -7,6 +7,9 @@ import VancouverMap from './VancouverMap'
 
 const FULL = 'calc(100vh - 73px)'
 
+/** Only re-render the dashboard when the set of vehicles in frame changes, not on every video frame. */
+const sameIds = (a: Det[], b: Det[]) => a.length === b.length && a.every((d, i) => d[0] === b[i][0])
+
 export default function Live() {
   const [cameras, setCameras] = useState<Camera[]>([])
   const [vehicles, setVehicles] = useState<Record<string, Vehicle>>({})
@@ -24,7 +27,9 @@ export default function Live() {
 
   const vehicle = gid ? vehicles[gid] : undefined
   const selectedTrack = gid && cam && gid.startsWith(cam.id + ':') ? Number(gid.split(':')[1]) : undefined
-  const trail = vehicle ? [...new Set(vehicle.sightings.map((s) => s.cam))] : []
+  const journey = vehicle?.journey && vehicle.journey.length > 1 ? vehicle.journey : []
+  const trail = journey.map((s) => s.cam)
+  const focus = trail.length ? trail : cam ? [cam.id] : []
   const camName = (id: string) => cameras.find((c) => c.id === id)?.name ?? id
 
   /** Open a camera; with a vehicle, start the feed just before that vehicle is in view. */
@@ -38,8 +43,8 @@ export default function Live() {
 
   return (
     <main style={{ display: 'flex', flexWrap: 'wrap', minHeight: FULL }}>
-      <div style={{ position: 'relative', flex: cam ? '0 1 420px' : '1 1 560px', minWidth: cam ? 300 : 0, height: FULL, minHeight: 520, borderRight: '1px solid var(--line)' }}>
-        <VancouverMap cameras={cameras} selected={camId} highlight={trail} onSelect={(id) => open(id)} />
+      <div style={{ position: 'relative', flex: cam ? '0 1 40%' : '1 1 560px', minWidth: cam ? 320 : 0, height: FULL, minHeight: 520, borderRight: '1px solid var(--line)' }}>
+        <VancouverMap cameras={cameras} selected={camId} highlight={trail} focus={focus} onSelect={(id) => open(id)} />
         <SearchBar onResults={setHits} compact={!!cam} />
         {hits && <Results hits={hits} vehicles={vehicles} camName={camName} onPick={(h) => { open(h.cam, h.gid); setHits(null) }} onClose={() => setHits(null)} />}
         <div className="mono" style={{ position: 'absolute', left: 16, bottom: 14, fontSize: 11, color: 'var(--dim)' }}>
@@ -72,6 +77,8 @@ export default function Live() {
             <button className="btn" aria-label="Close camera" onClick={close}>✕ Map</button>
           </div>
 
+          {vehicle && <TrackingBar v={vehicle} current={cam.id} camName={camName} onStep={open} onStop={() => setGid(undefined)} />}
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 14, alignItems: 'flex-start' }}>
             <div style={{ flex: '1.7 1 420px', minWidth: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line)' }}>
               <TrackedVideo
@@ -84,7 +91,7 @@ export default function Live() {
                 highlight={selectedTrack}
                 othersOpacity={selectedTrack !== undefined ? 0.45 : 1}
                 labelFor={(tid) => { const v = vehicles[`${cam.id}:${tid}`]; return v ? vehicleTitle(v) : undefined }}
-                onFrame={(_, d) => setDets(d)}
+                onFrame={(_, d) => setDets((prev) => (sameIds(prev, d) ? prev : d))}
                 onPick={(tid) => setGid(`${cam.id}:${tid}`)}
               >
                 <span className="chip" style={{ position: 'absolute', left: 8, top: 8, display: 'flex', gap: 6, alignItems: 'center', color: 'var(--text)' }}>
@@ -115,8 +122,6 @@ export default function Live() {
 function VehicleDetail({ v, camName, onJump, onZoom, onBack }: { v: Vehicle; camName: (id: string) => string; onJump: (cam: string, gid: string) => void; onZoom: (src: string, caption: string) => void; onBack: () => void }) {
   const [guesses, setGuesses] = useState(false)
   const uncertain = v.reliable === false
-  const others = v.sightings.slice(1)
-  const verified = others.some((s) => s.verified)
   const title = vehicleTitle(v)
   return (
     <div style={{ marginTop: 18, padding: 18, borderRadius: 10, border: '1px solid var(--line)', background: 'var(--panel-2)' }}>
@@ -154,24 +159,73 @@ function VehicleDetail({ v, camName, onJump, onZoom, onBack }: { v: Vehicle; cam
         </div>
       </div>
 
-      <div className="label" style={{ color: verified ? 'var(--teal)' : 'var(--dim)', fontSize: 11, margin: '20px 0 10px' }}>
-        {verified ? 'Same car on other cameras' : 'Most similar on other cameras'} · click to jump
+      <LookAlikes items={v.similar ?? v.sightings.slice(1).filter((x) => !x.verified)} camName={camName} onJump={onJump} />
+    </div>
+  )
+}
+
+function TrackingBar({ v, current, camName, onStep, onStop }: { v: Vehicle; current: string; camName: (id: string) => string; onStep: (cam: string, gid: string) => void; onStop: () => void }) {
+  const steps = v.journey && v.journey.length > 1 ? v.journey : null
+  const i = steps ? steps.findIndex((s) => s.cam === current) : -1
+  const go = (k: number) => { const s = steps?.[k]; if (s) onStep(s.cam, `${s.cam}:${s.track}`) }
+  return (
+    <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--amber)', background: 'rgba(251,191,36,.06)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <span className="label" style={{ color: 'var(--amber)', fontSize: 11 }}>Tracking</span>
+        <img src={asset(v.crop)} alt="" style={{ width: 44, height: 33, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--amber)' }} />
+        <strong style={{ fontSize: 16 }}>{vehicleTitle(v)}</strong>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--dim)' }}>
+          {steps ? `seen on ${steps.length} cameras · step ${i + 1} of ${steps.length} · ✓ ground truth` : 'no confirmed sighting on other cameras'}
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          {steps && <button className="btn" disabled={i <= 0} onClick={() => go(i - 1)} style={{ minHeight: 34, padding: '4px 12px', opacity: i <= 0 ? 0.4 : 1 }}>‹ Prev</button>}
+          {steps && <button className="btn" disabled={i >= steps.length - 1} onClick={() => go(i + 1)} style={{ minHeight: 34, padding: '4px 12px', opacity: i >= steps.length - 1 ? 0.4 : 1 }}>Next ›</button>}
+          <button className="btn" onClick={onStop} aria-label="Stop tracking" style={{ minHeight: 34, padding: '4px 10px' }}>✕</button>
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
-        {others.map((s) => (
-          <button key={s.cam + s.track} onClick={() => onJump(s.cam, `${s.cam}:${s.track}`)} style={{ padding: 0, textAlign: 'left', cursor: 'pointer', borderRadius: 8, overflow: 'hidden', border: `1px solid ${s.verified ? 'var(--teal)' : 'var(--line-2)'}`, background: 'var(--panel)' }}>
-            <img src={asset(s.crop)} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }} />
-            <div style={{ padding: '8px 10px' }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{camName(s.cam)}</div>
-              <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
-                <span style={{ color: s.verified ? 'var(--teal)' : 'var(--dim)' }}>{s.verified ? '✓ same car' : `#${s.track}`}</span>
-                <span style={{ color: 'var(--amber)' }}>{s.sim.toFixed(2)}</span>
+      {steps && (
+        <ol style={{ listStyle: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, margin: '12px 0 0', padding: 0 }}>
+          {steps.map((s, k) => {
+            const here = k === i
+            return (
+              <li key={s.cam + s.track} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => go(k)} aria-current={here ? 'step' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 6px', borderRadius: 8, cursor: 'pointer', background: here ? 'var(--amber)' : 'var(--panel)', color: here ? 'var(--amber-ink)' : 'var(--text)', border: `1px solid ${here ? 'var(--amber)' : 'var(--line-2)'}` }}>
+                  <span className="mono" style={{ width: 22, height: 22, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: here ? 'var(--amber-ink)' : 'transparent', color: here ? 'var(--amber)' : 'var(--amber)', border: here ? 'none' : '1px solid var(--amber)' }}>{k + 1}</span>
+                  <img src={asset(s.crop)} alt="" style={{ width: 40, height: 30, objectFit: 'cover', borderRadius: 3 }} />
+                  <span style={{ fontSize: 13, fontWeight: here ? 700 : 500, whiteSpace: 'nowrap' }}>{camName(s.cam)}</span>
+                  {here && <span className="mono" style={{ fontSize: 10 }}>YOU ARE HERE</span>}
+                </button>
+                {k < steps.length - 1 && <span aria-hidden style={{ color: 'var(--amber)' }}>→</span>}
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function LookAlikes({ items, camName, onJump }: { items: Vehicle['sightings']; camName: (id: string) => string; onJump: (cam: string, gid: string) => void }) {
+  const [open, setOpen] = useState(false)
+  if (!items.length) return null
+  return (
+    <div style={{ marginTop: 18 }}>
+      <button className="btn mono" onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ fontSize: 11, minHeight: 34, padding: '4px 12px' }}>
+        {open ? '▾' : '▸'} Similar-looking vehicles on other cameras · not confirmed the same car ({items.length})
+      </button>
+      {open && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginTop: 10 }}>
+          {items.map((s) => (
+            <button key={s.cam + s.track} onClick={() => onJump(s.cam, `${s.cam}:${s.track}`)} style={{ padding: 0, textAlign: 'left', cursor: 'pointer', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-2)', background: 'var(--panel)', opacity: 0.85 }}>
+              <img src={asset(s.crop)} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }} />
+              <div style={{ padding: '6px 9px' }}>
+                <div style={{ fontSize: 12 }}>{camName(s.cam)}</div>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>look-alike · sim {s.sim.toFixed(2)}</div>
               </div>
-              <div style={{ height: 3, marginTop: 6, background: '#141c28', borderRadius: 2 }}><div style={{ height: '100%', width: `${Math.max(0, s.sim) * 100}%`, background: s.verified ? 'var(--teal)' : 'var(--amber)', borderRadius: 2 }} /></div>
-            </div>
-          </button>
-        ))}
-      </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

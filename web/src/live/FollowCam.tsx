@@ -9,6 +9,7 @@ export default function FollowCam({ src, tracks, track }: { src: string; tracks:
   const frameEl = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 400, h: 300 })
   const [box, setBox] = useState<Box | null>(null)
+  const [view, setView] = useState<Box | null>(null)
 
   // Frames where this vehicle is on screen, with its box; the follow-cam loops over that span.
   const path = useMemo(() => {
@@ -44,15 +45,17 @@ export default function FollowCam({ src, tracks, track }: { src: string; tracks:
       if (!alive) return
       const t = meta ? meta.mediaTime : v.currentTime
       if (t >= t1 || t < t0 - 0.2) v.currentTime = t0
-      const f = Math.min(tracks.n - 1, Math.floor(t * tracks.fps))
+      const f = Math.min(tracks.n - 1, Math.round(t * tracks.fps))
       let target: Box | undefined = path.get(f)
       if (!target) for (let k = 1; k < 8 && !target; k++) target = path.get(f - k) ?? path.get(f + k)
       if (target) {
-        const a = smooth ? 0.25 : 1 // exponential smoothing keeps the camera steady through jitter
+        // The camera framing is smoothed so it doesn't jitter; the box itself is drawn exactly.
+        const a = smooth ? 0.45 : 1
         smooth = smooth
           ? { x: smooth.x + (target.x - smooth.x) * a, y: smooth.y + (target.y - smooth.y) * a, w: smooth.w + (target.w - smooth.w) * a, h: smooth.h + (target.h - smooth.h) * a }
           : target
-        setBox(smooth)
+        setView(smooth)
+        setBox(target)
       }
       handle = 'requestVideoFrameCallback' in v ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(() => tick(0))
     }
@@ -67,10 +70,11 @@ export default function FollowCam({ src, tracks, track }: { src: string; tracks:
   }, [src, path, first, last, tracks])
 
   // Zoom so the vehicle fills ~65% of the view, capped so tiny boxes don't turn into mush.
-  const b = box ?? { x: 0, y: 0, w: tracks.w, h: tracks.h }
-  const k = Math.min(0.65 * size.w / b.w, 0.65 * size.h / b.h, (size.w / tracks.w) * 6)
-  const left = size.w / 2 - (b.x + b.w / 2) * k
-  const top = size.h / 2 - (b.y + b.h / 2) * k
+  const cv = view ?? { x: 0, y: 0, w: tracks.w, h: tracks.h }
+  const b = box ?? cv
+  const k = Math.min(0.65 * size.w / cv.w, 0.65 * size.h / cv.h, (size.w / tracks.w) * 6)
+  const left = size.w / 2 - (cv.x + cv.w / 2) * k
+  const top = size.h / 2 - (cv.y + cv.h / 2) * k
 
   return (
     <div ref={frameEl} style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 8, background: '#000', border: '1px solid var(--amber)' }}>

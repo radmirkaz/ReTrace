@@ -41,7 +41,7 @@ export default function TrackedVideo({ src, poster, tracks, progress, highlight,
     const tick = (_: number, meta?: VideoFrameCallbackMetadata) => {
       if (!alive) return
       const t = meta ? meta.mediaTime : v.currentTime
-      setFrame(Math.min(tracks.n - 1, Math.floor(t * tracks.fps)))
+      setFrame(Math.min(tracks.n - 1, Math.round(t * tracks.fps)))  // round: mediaTime k/fps can land just below k
       handle = 'requestVideoFrameCallback' in v ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(() => tick(0))
     }
     handle = 'requestVideoFrameCallback' in v ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(() => tick(0))

@@ -7,6 +7,13 @@
   "view": "roundabout",
   "condition": "day",
   "source": "RoundaboutHD \u00b7 cam 1 (4K)",
+  "start": 105.0,
+  "gt": {
+   "dataset": "roundabouthd",
+   "cam": 1,
+   "scale": 0.5,
+   "fps": 15
+  },
   "res": "1920x1080",
   "clip": "clips/cambie-king-edward-n.mp4",
   "tracks": "tracks/cambie-king-edward-n.json",
@@ -20,6 +27,13 @@
   "view": "roundabout",
   "condition": "day",
   "source": "RoundaboutHD \u00b7 cam 2 (4K)",
+  "start": 105.0,
+  "gt": {
+   "dataset": "roundabouthd",
+   "cam": 2,
+   "scale": 0.5,
+   "fps": 15
+  },
   "res": "1920x1080",
   "clip": "clips/cambie-king-edward-e.mp4",
   "tracks": "tracks/cambie-king-edward-e.json",
@@ -33,6 +47,13 @@
   "view": "roundabout",
   "condition": "day",
   "source": "RoundaboutHD \u00b7 cam 3 (4K)",
+  "start": 105.0,
+  "gt": {
+   "dataset": "roundabouthd",
+   "cam": 3,
+   "scale": 0.5,
+   "fps": 15
+  },
   "res": "1920x1080",
   "clip": "clips/cambie-king-edward-s.mp4",
   "tracks": "tracks/cambie-king-edward-s.json",
@@ -46,6 +67,13 @@
   "view": "roundabout",
   "condition": "day",
   "source": "RoundaboutHD \u00b7 cam 4 (4K)",
+  "start": 105.0,
+  "gt": {
+   "dataset": "roundabouthd",
+   "cam": 4,
+   "scale": 0.5,
+   "fps": 15
+  },
   "res": "1920x1080",
   "clip": "clips/cambie-king-edward-w.mp4",
   "tracks": "tracks/cambie-king-edward-w.json",

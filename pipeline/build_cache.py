@@ -121,6 +121,67 @@ def iou(a, b):
     return inter / max(1e-6, (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter)
 
 
+CF_ROOT = ROOT / "demo_footage" / "CityFlowV2"
+RHD_GT = ROOT / "demo_footage" / "RoundaboutHD" / "RoundaboutHD" / "Multi_CAM_Ground_Turth.txt"
+
+
+def _load_cityflow(src_cam: str):
+    scen = "train" if (CF_ROOT / "train" / src_cam.split("/")[0]).exists() else "validation"
+    frames = {}
+    for line in (CF_ROOT / scen / src_cam / "gt" / "gt.txt").read_text().splitlines():
+        f, vid, x, y, w, h = map(float, line.split(",")[:6])
+        frames.setdefault(int(f), []).append((int(vid), (x, y, x + w, y + h)))
+    return frames
+
+
+_RHD = None
+
+
+def _load_rhd(cam: int):
+    global _RHD
+    if _RHD is None:
+        _RHD = {}
+        for line in RHD_GT.read_text().splitlines():
+            c, vid, f, x, y, w, h = line.split()[:7]
+            _RHD.setdefault(int(c), {}).setdefault(int(f), []).append((int(vid), (float(x), float(y), float(x) + float(w), float(y) + float(h))))
+    return _RHD.get(cam, {})
+
+
+def assign_ground_truth(spec, vehicles):
+    """gid -> (dataset, ground-truth id) by matching each vehicle's best box to the labelled box."""
+    out = {}
+    for cam in spec["cameras"]:
+        cid, src = cam["id"], cam.get("source", "")
+        if "CityFlowV2" in src and cid in spec.get("trace", {}):
+            src_cam = src.split("· ")[1].split(" ")[0]  # e.g. S01/c003
+            frames = _load_cityflow(src_cam)
+            t = spec["trace"][cid]
+            tx, ty, tw, th = t["box"]
+            f_target = next((f for f, rows in frames.items() for vid, b in rows
+                             if vid == t["gt_vehicle"] and abs(b[0] - tx) < 1 and abs(b[1] - ty) < 1), None)
+            if f_target is None:
+                continue
+            base, scale, key = f_target - round(t["t"] * 10), 1.0, "cityflow"
+        elif cam.get("gt", {}).get("dataset") == "roundabouthd":
+            g = cam["gt"]
+            frames = _load_rhd(g["cam"])
+            base, scale, key = round(cam["start"] * g["fps"]), g["scale"], "roundabouthd"
+        else:
+            continue
+        for gid, v in vehicles.items():
+            if not gid.startswith(cid + ":"):
+                continue
+            best = (0.0, None)
+            for off in (-1, 0, 1):
+                for vid, b in frames.get(base + v["_fi"] + off, []):
+                    o = iou(v["_box"], tuple(x * scale for x in b))
+                    if o > best[0]:
+                        best = (o, vid)
+            if best[0] > 0.5:
+                out[gid] = (key, best[1])
+    return out
+
+
 class Models:
     def __init__(self):
         meta = json.loads(CLASS_META.read_text())
@@ -214,6 +275,7 @@ def index(M, src_dir, spec_name, out):
                 "evidence": {"consistency": round(consistency, 2), "margin": round(margin, 3), "min_side": int(min_side), "contrast": round(contrast, 1), "crops": len(pick["crops"])},
                 "top5": [{"name": names[int(i)], "p": round(float(p), 4)} for p, i in zip(top.values, top.indices)],
                 "sightings": [{"cam": cid, "track": int(tid), "t": round(pick["frames"][0] / hi_tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
+                "_fi": pick["frames"][0], "_box": pick["box"],
             }
         mine = [v for k, v in vehicles.items() if k.startswith(cid + ":")]
         print(f"{cid} [{cam.get('condition')}]: {len(picks)} tracks, {len(mine)} identified, {sum(v['reliable'] for v in mine)} with a reliable make/model")
@@ -222,31 +284,48 @@ def index(M, src_dir, spec_name, out):
     S = E @ E.T
     index = {k: i for i, k in enumerate(keys)}
 
-    # Ground-truth corridor target: our track overlapping the CityFlow GT box at its mid appearance.
+    # Ground-truth identities (CityFlowV2 for Kingsway, RoundaboutHD for Cambie) for every vehicle we can match.
+    gt_of = assign_ground_truth(spec, vehicles)
+    order = {c["id"]: i for i, c in enumerate(spec["cameras"])}
+    groups = {}
+    for gid, key in gt_of.items():
+        groups.setdefault(key, []).append(gid)
     target = {}
     for cid, t in spec.get("trace", {}).items():
-        hi = json.loads((WEB_ / f"{cid}_hi.json").read_text())
-        fi = min(hi["n"] - 1, int(round(t["t"] * hi["fps"])))
-        x, y, w, h = t["box"]
-        best = max(hi["frames"][fi], key=lambda d: iou(d[1:5], (x, y, x + w, y + h)), default=None)
-        if best and iou(best[1:5], (x, y, x + w, y + h)) > 0.3 and f"{cid}:{best[0]}" in vehicles:
-            target[cid] = f"{cid}:{best[0]}"
+        for gid, key in gt_of.items():
+            if gid.startswith(cid + ":") and key == ("cityflow", t["gt_vehicle"]):
+                target[cid] = gid
     t_keys = list(target.values())
 
     for gid in keys:
         i = index[gid]
         cam_i = gid.split(":")[0]
-        if gid in t_keys:  # verified: the same physical car on every corridor camera
-            others = [k for k in t_keys if k != gid]
-            for k in others:
-                vehicles[gid]["sightings"].append({**vehicles[k]["sightings"][0], "sim": round(float(S[i, index[k]]), 3), "verified": True})
-            continue
-        for j in np.argsort(-S[i]):
-            if j == i or keys[j].split(":")[0] == cam_i:
+        me = vehicles[gid]
+        members = sorted(groups.get(gt_of.get(gid), [gid]), key=lambda g: order[g.split(":")[0]])
+        # One appearance per camera: tracker ID switches can split a car into several tracks.
+        per_cam = {}
+        for g in members:
+            c = g.split(":")[0]
+            if c == cam_i and g != gid:
                 continue
-            vehicles[gid]["sightings"].append({**vehicles[keys[j]]["sightings"][0], "sim": round(float(S[i, j]), 3)})
-            if len(vehicles[gid]["sightings"]) >= 4:
+            if g == gid or c not in per_cam or (per_cam[c] != gid and vehicles[g]["quality"] > vehicles[per_cam[c]]["quality"]):
+                per_cam[c] = g
+        members = sorted(per_cam.values(), key=lambda g: order[g.split(":")[0]])
+        me["journey"] = [{**vehicles[g]["sightings"][0], "sim": round(float(S[i, index[g]]), 3), "verified": len(members) > 1, **({"self": True} if g == gid else {})}
+                         for g in members]
+        me["similar"] = []
+        for j in np.argsort(-S[i]):
+            k = keys[j]
+            if k in members or k.split(":")[0] == cam_i:
+                continue
+            me["similar"].append({**vehicles[k]["sightings"][0], "sim": round(float(S[i, j]), 3)})
+            if len(me["similar"]) >= 4:
                 break
+        me["sightings"] = [me["sightings"][0]] + [x for x in me["journey"] if not x.get("self")] + me["similar"]
+    for v in vehicles.values():
+        v.pop("_fi", None)
+        v.pop("_box", None)
+    stats["journeys"] = sum(1 for g in groups.values() if len({x.split(":")[0] for x in g}) > 1)
 
     print(json.dumps({**stats, "set": spec_name, "cameras": len(cameras), "corridor_target": t_keys}))
     return {"cameras": cameras, "vehicles": vehicles, "keys": keys, "E": E, "C": np.stack(clip_emb), "target": t_keys}
