@@ -14,12 +14,19 @@ interface Props {
   reveal?: (order: number) => number
   onFrame?: (frame: number, dets: Det[]) => void
   onPick?: (track: number) => void
+  /** Seconds to jump to once the clip loads (e.g. when opening a sighting). */
+  startAt?: number
+  /** Show a fullscreen button; boxes stay aligned because the overlay goes fullscreen with the video. */
+  fullscreen?: boolean
+  /** Custom box label per track (defaults to detector class + confidence). */
+  labelFor?: (track: number) => string | undefined
   className?: string
   children?: React.ReactNode
 }
 
 /** Plays (or scroll-scrubs) a clip and overlays the detector's per-frame tracks. */
-export default function TrackedVideo({ src, poster, tracks, progress, highlight, othersOpacity = 1, reveal, onFrame, onPick, className, children }: Props) {
+export default function TrackedVideo({ src, poster, tracks, progress, highlight, othersOpacity = 1, reveal, onFrame, onPick, startAt, fullscreen, labelFor, className, children }: Props) {
+  const outer = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
   const [frame, setFrame] = useState(0)
   const wanted = useRef(0)
@@ -66,8 +73,8 @@ export default function TrackedVideo({ src, poster, tracks, progress, highlight,
   }, [tracks])
 
   const ar = tracks ? `${tracks.w} / ${tracks.h}` : '16 / 9'
-  return (
-    <div className={className} style={{ position: 'relative', aspectRatio: ar, overflow: 'hidden', background: '#0a0f16' }}>
+  const inner = (
+    <div className={fullscreen ? 'tv-inner' : className} style={{ position: 'relative', aspectRatio: ar, overflow: 'hidden', background: '#0a0f16', ['--ar' as string]: tracks ? tracks.w / tracks.h : 16 / 9 }}>
       <video
         ref={video}
         src={src}
@@ -77,7 +84,10 @@ export default function TrackedVideo({ src, poster, tracks, progress, highlight,
         loop={!scrub}
         autoPlay={!scrub}
         preload="auto"
-        onLoadedData={(e) => { if (scrub) e.currentTarget.currentTime = wanted.current + 0.001 }}
+        onLoadedData={(e) => {
+          if (scrub) e.currentTarget.currentTime = wanted.current + 0.001
+          else if (startAt) e.currentTarget.currentTime = startAt
+        }}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
       {tracks && dets.map((d) => {
@@ -97,11 +107,19 @@ export default function TrackedVideo({ src, poster, tracks, progress, highlight,
               opacity: o, transform: `scale(${1.25 - 0.25 * Math.min(1, r)})`, cursor: onPick ? 'pointer' : undefined,
             }}
           >
-            <span>#{tid} {tracks.names[String(cls)] ?? 'vehicle'} {conf.toFixed(2)}</span>
+            <span>#{tid} {labelFor?.(tid) ?? `${tracks.names[String(cls)] ?? 'vehicle'} ${conf.toFixed(2)}`}</span>
           </div>
         )
       })}
       {children}
+    </div>
+  )
+  if (!fullscreen) return inner
+  const toggle = () => (document.fullscreenElement ? document.exitFullscreen() : outer.current?.requestFullscreen())
+  return (
+    <div ref={outer} className={`tv-outer ${className ?? ''}`} style={{ position: 'relative' }}>
+      {inner}
+      <button className="tv-fs" onClick={toggle} aria-label="Toggle fullscreen" title="Fullscreen">⛶</button>
     </div>
   )
 }

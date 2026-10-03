@@ -1,4 +1,4 @@
-import { asset, type LandingData, type Vehicle } from '../data'
+import { asset, vehicleTitle, type LandingData, type Vehicle } from '../data'
 import { usePinProgress, useTicker, span } from '../hooks'
 
 const KEYWORDS: Record<string, string> = {
@@ -94,7 +94,7 @@ export default function Witness({ data, vehicles }: { data: NonNullable<LandingD
               {lead && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 16, padding: '16px 18px', borderRadius: 10, border: '1px solid var(--amber)', background: 'rgba(251,191,36,.06)', opacity: leadK, transform: `translateY(${14 * (1 - leadK)}px)` }}>
                   <span className="mono" style={{ fontSize: 11, color: 'var(--amber)' }}>LEAD</span>
-                  <span style={{ fontWeight: 700 }}>#{hits[0].track} · {lead.top5[0]?.name} · {hits[0].cam}</span>
+                  <span style={{ fontWeight: 700 }}>#{hits[0].track} · {vehicleTitle(lead)} · {hits[0].cam}</span>
                   <a href="#trace" className="mono" style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--amber)' }}>Trace it ↓</a>
                 </div>
               )}

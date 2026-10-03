@@ -39,6 +39,11 @@ export interface Vehicle {
   color?: string
   speed?: number
   quality?: number
+  /** Body type and colour from CLIP — robust even when the make/model is not. */
+  body?: string
+  /** True only when crops agree, the margin is clear and the crop has enough detail. */
+  reliable?: boolean
+  evidence?: { consistency: number; margin: number; min_side: number; contrast: number; crops: number }
   sightings: Sighting[]
 }
 
@@ -107,4 +112,12 @@ export interface LandingData {
   trace: { cam: string; clip: string; tracks: string; poster: string; track: number; t: number; vehicle: string }
   witness?: { transcript: string; query: string; hits: SearchHit[] }
   vehicles?: Record<string, Vehicle>
+}
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+
+/** What we can honestly call a vehicle: its make/model when reliable, otherwise colour + body type. */
+export function vehicleTitle(v: Vehicle): string {
+  if (v.reliable !== false && v.top5[0]) return v.top5[0].name
+  return cap([v.color, v.body].filter(Boolean).join(' ') || 'vehicle')
 }

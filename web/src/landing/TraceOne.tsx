@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import TrackedVideo from '../components/TrackedVideo'
-import { asset, type LandingData, type Tracks, type Vehicle } from '../data'
+import { asset, vehicleTitle, type LandingData, type Tracks, type Vehicle } from '../data'
 import { usePinProgress, ease, span } from '../hooks'
 import { Header } from './Witness'
 
@@ -87,7 +87,7 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
               {v && (
                 <div style={{ marginTop: 14, padding: 18, borderRadius: 10, border: '1px solid var(--line)', background: 'var(--panel)', opacity: info, transform: `translateY(${16 * (1 - info)}px)` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 18 }}>{v.color ? `${v.color[0].toUpperCase()}${v.color.slice(1)} vehicle` : 'Vehicle'} · #{trace.track}</div>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>{vehicleTitle(v)} · #{trace.track}</div>
                     <span className="chip">{trace.cam.toUpperCase()}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>

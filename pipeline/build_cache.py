@@ -44,6 +44,16 @@ REID_EMBED = "v24"
 CLASS_META = CANAI / "submission" / "notebooks" / "llm_data_9630_classes.json"
 CLIP_MODEL = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+BODIES = ["sedan", "SUV", "pickup truck", "hatchback", "minivan", "van", "coupe", "station wagon", "bus", "box truck", "semi truck", "motorcycle"]
+COLOURS = ["white", "black", "grey", "silver", "red", "blue", "green", "yellow", "orange", "brown", "beige"]
+
+
+def reliable(consistency, margin, p1, min_side, contrast, n_crops):
+    """Make/model is only shown when independent signals agree — softmax confidence alone is
+    not trusted (night/snow crops can be confidently wrong)."""
+    return n_crops >= 2 and consistency >= 0.75 and p1 >= 0.25 and margin >= 0.08 and min_side >= 72 and contrast >= 28
+
+
 LOCATIONS = json.loads((Path(__file__).parent / "map" / "camera_locations.json").read_text())
 
 sys.path.append(str(CANAI / "submission" / "reid"))
@@ -141,6 +151,10 @@ def index(M, src_dir, spec_name, out):
     rel = "" if rel == "." else rel + "/"
     spec = json.loads((src_dir / spec_name).read_text())
     names, priors, reid, tf, clip_model, clip_proc = M.names, M.priors, M.reid, M.tf, M.clip, M.proc
+    with torch.no_grad():
+        txt = lambda xs: F.normalize(clip_model.get_text_features(**clip_proc(text=xs, return_tensors="pt", padding=True).to(DEVICE)).float(), dim=1)
+        body_t = txt([f"a photo of a {b}" for b in BODIES])
+        colour_t = txt([f"a photo of a {c} vehicle" for c in COLOURS])
     WEB_ = src_dir
     cameras, vehicles, emb, clip_emb, keys = [], {}, [], [], []
     stats = {"tracks": 0, "identified": 0, "skipped_unclean": 0}
@@ -167,28 +181,42 @@ def index(M, src_dir, spec_name, out):
             with torch.no_grad():
                 batch = torch.stack([tf(r) for r in rgbs]).to(DEVICE)
                 logits, feats = reid(batch)
-                probs = (F.softmax(logits.float(), dim=1) * priors)
-                probs = (probs / probs.sum(dim=1, keepdim=True)).mean(0)
+                per_crop = F.softmax(logits.float(), dim=1) * priors
+                per_crop = per_crop / per_crop.sum(dim=1, keepdim=True)
+                probs = per_crop.mean(0)
                 _, v24_feats = M.embedder(batch)
                 feat = F.normalize(F.normalize(v24_feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
                 if REID_EMBED == "ensemble":
                     own = F.normalize(F.normalize(feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
                     feat = F.normalize(feat + own, dim=0)
-                ci = clip_model.get_image_features(**clip_proc(images=rgbs[0], return_tensors="pt").to(DEVICE))
+                ci = F.normalize(clip_model.get_image_features(**clip_proc(images=rgbs, return_tensors="pt").to(DEVICE)).float(), dim=1)
+                ci = F.normalize(ci.mean(0, keepdim=True), dim=1)
+                body = BODIES[int((ci @ body_t.T).argmax())]
+                colour = COLOURS[int((ci @ colour_t.T).argmax())]
             top = torch.topk(probs, 5)
+            top1 = int(top.indices[0])
+            consistency = float((per_crop.argmax(dim=1) == top1).float().mean())
+            margin = float(top.values[0] - top.values[1])
+            best = pick["crops"][0]
+            min_side = min(best.shape[:2])
+            contrast = float(cv2.cvtColor(best, cv2.COLOR_BGR2GRAY).std())
+            ok = reliable(consistency, margin, float(top.values[0]), min_side, contrast, len(pick["crops"]))
+            stats["reliable"] = stats.get("reliable", 0) + int(ok)
             gid = f"{cid}:{tid}"
             crop_rel = f"{rel}crops/{cid}_{tid}.jpg"
             cv2.imwrite(str(CACHE / crop_rel), pick["crops"][0], [cv2.IMWRITE_JPEG_QUALITY, 92])
             emb.append(feat.cpu().numpy())
-            clip_emb.append(F.normalize(ci.float(), dim=1)[0].cpu().numpy())
+            clip_emb.append(ci[0].cpu().numpy())
             keys.append(gid)
             stats["identified"] += 1
             vehicles[gid] = {
-                "gid": gid, "crop": crop_rel, "color": colour_name(pick["crops"][0]), "quality": pick["quality"],
+                "gid": gid, "crop": crop_rel, "color": colour, "body": body, "quality": pick["quality"], "reliable": ok,
+                "evidence": {"consistency": round(consistency, 2), "margin": round(margin, 3), "min_side": int(min_side), "contrast": round(contrast, 1), "crops": len(pick["crops"])},
                 "top5": [{"name": names[int(i)], "p": round(float(p), 4)} for p, i in zip(top.values, top.indices)],
                 "sightings": [{"cam": cid, "track": int(tid), "t": round(pick["frames"][0] / hi_tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
             }
-        print(f"{cid}: {len(picks)} tracks, {sum(p['clean'] for p in picks.values())} clean")
+        mine = [v for k, v in vehicles.items() if k.startswith(cid + ":")]
+        print(f"{cid} [{cam.get('condition')}]: {len(picks)} tracks, {len(mine)} identified, {sum(v['reliable'] for v in mine)} with a reliable make/model")
 
     E = np.stack(emb)
     S = E @ E.T
