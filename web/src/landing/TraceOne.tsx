@@ -35,7 +35,8 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
   const info = span(p, 0.44, 0.48)
   const mapO = span(p, 0.7, 0.76)
   const phase = p < 0.12 ? 0 : p < 0.26 ? 1 : p < 0.46 ? 2 : p < 0.68 ? 3 : 4
-  const captions = ['Every vehicle, detected.', 'Pick one.', 'Pull it out of the video.', 'Know what it is.', 'Find it on other cameras.']
+  const verified = (v?.sightings ?? []).some((s) => s.verified)
+  const captions = ['Every vehicle, detected.', 'Pick one.', 'Pull it out of the video.', 'Know what it is.', verified ? 'Found again on every camera.' : 'Find it on other cameras.']
 
   // Box of the target car at the held frame, in stage pixels.
   const det = tracks?.frames[targetFrame]?.find((d) => d[0] === trace.track)
@@ -47,7 +48,7 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
   const to = geo?.slot
   const lerp = (a: number, b: number) => a + (b - a) * pull
   const crop = from && to ? { left: lerp(from.x, to.x), top: lerp(from.y, to.y), width: lerp(from.w, to.w), height: lerp(from.h, to.h) } : null
-  const others = (v?.sightings ?? []).slice(1, 4)
+  const others = (v?.sightings ?? []).slice(1, 5)
 
   return (
     <section id="trace" ref={ref} style={{ position: 'relative', height: '520vh' }}>
@@ -62,7 +63,7 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
                 </TrackedVideo>
               </div>
               <div className="grid-bg" style={{ position: 'absolute', inset: 0, background: '#070b12', opacity: mapO, padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div className="mono" style={{ fontSize: 11, color: '#93a4b8' }}>NEAREST APPEARANCE MATCHES ON OTHER CAMERAS · COSINE SIMILARITY</div>
+                <div className="mono" style={{ fontSize: 11, color: '#93a4b8' }}>{verified ? 'SAME CAR ON OTHER CAMERAS · RE-ID COSINE SIMILARITY' : 'NEAREST APPEARANCE MATCHES ON OTHER CAMERAS · COSINE SIMILARITY'}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, others.length)}, minmax(0, 1fr))`, gap: 12, flex: 1 }}>
                   {others.map((s, i) => {
                     const k = span(p, 0.76 + i * 0.05, 0.8 + i * 0.05)
@@ -71,13 +72,13 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
                         <img src={asset(s.crop)} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }} />
                         <div className="mono" style={{ padding: 10, fontSize: 11, lineHeight: 1.6 }}>
                           {s.cam.toUpperCase()} · #{s.track}<br />
-                          <span style={{ color: 'var(--amber)' }}>sim {s.sim.toFixed(2)}</span>
+                          <span style={{ color: 'var(--amber)' }}>sim {s.sim.toFixed(2)}</span>{s.verified && <><br /><span style={{ color: 'var(--teal)' }}>✓ ground truth</span></>}
                         </div>
                       </div>
                     )
                   })}
                 </div>
-                <div className="mono" style={{ fontSize: 10, color: 'var(--faint)' }}>Demo feeds come from unrelated videos, so these are look-alikes, not the same car. True cross-camera matches use RoundaboutHD / CityFlowV2.</div>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--faint)' }}>{verified ? 'Kingsway corridor feeds are CityFlowV2 (Iowa): its labels confirm each match is the same physical car.' : 'These feeds come from unrelated videos, so matches are look-alikes, not the same car.'}</div>
               </div>
             </div>
 

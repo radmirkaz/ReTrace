@@ -26,6 +26,7 @@ interface Props {
 /** Stylised Vancouver: OpenStreetMap water/roads from /map/vancouver.json, or a city-grid fallback. */
 export default function VancouverMap({ cameras, selected, highlight = [], onSelect }: Props) {
   const [map, setMap] = useState<MapData | null>(null)
+  const [hover, setHover] = useState<string>()
   useEffect(() => { fetch('/map/vancouver.json').then((r) => (r.ok ? r.json() : null)).then(setMap).catch(() => setMap(null)) }, [])
 
   const layers = useMemo(() => (map ? { water: path(map.water, true), parks: path(map.parks ?? [], true), major: path(map.major), minor: path(map.minor), coast: path(map.coast ?? []) } : null), [map])
@@ -48,7 +49,7 @@ export default function VancouverMap({ cameras, selected, highlight = [], onSele
           <path d={layers.minor} fill="none" stroke="#1a2635" strokeWidth="0.7" strokeLinecap="round" />
           <path d={layers.major} fill="none" stroke="#2c4a64" strokeWidth="1.5" strokeLinecap="round" />
           <path d={layers.major} fill="none" stroke="rgba(94,234,212,.12)" strokeWidth="4" strokeLinecap="round" />
-          <text x={W - 8} y={H - 8} textAnchor="end" fontFamily="JetBrains Mono, monospace" fontSize="9" fill="#5b6b80">© OpenStreetMap contributors</text>
+          <text x={W - 8} y={H - 8} textAnchor="end" fontFamily="JetBrains Mono, monospace" fontSize="8" fill="#3d4a5c">Demo footage from public datasets; camera placements are illustrative · © OpenStreetMap contributors</text>
         </>
       ) : (
         <FallbackGrid />
@@ -66,14 +67,16 @@ export default function VancouverMap({ cameras, selected, highlight = [], onSele
         const hit = highlight.includes(c.id)
         const col = hit ? '#fbbf24' : COND[c.condition]
         return (
-          <g key={c.id} transform={`translate(${x} ${y})`} style={{ cursor: 'pointer' }} onClick={() => onSelect(c.id)} role="button" tabIndex={0} aria-label={c.name} onKeyDown={(e) => { if (e.key === 'Enter') onSelect(c.id) }}>
+          <g key={c.id} transform={`translate(${x} ${y})`} style={{ cursor: 'pointer' }} onMouseEnter={() => setHover(c.id)} onMouseLeave={() => setHover(undefined)} onFocus={() => setHover(c.id)} onBlur={() => setHover(undefined)} onClick={() => onSelect(c.id)} role="button" tabIndex={0} aria-label={c.name} onKeyDown={(e) => { if (e.key === 'Enter') onSelect(c.id) }}>
             <circle r={on ? 40 : 26} fill="url(#vm-glow)" opacity={on || hit ? 1 : 0.5} />
             <circle r="9" fill="none" stroke={col} strokeWidth="1.5" opacity=".6">
               <animate attributeName="r" from="6" to="22" dur="2.4s" repeatCount="indefinite" />
               <animate attributeName="opacity" from=".7" to="0" dur="2.4s" repeatCount="indefinite" />
             </circle>
             <circle r={on ? 7 : 5} fill={col} stroke="#05070b" strokeWidth="2" />
-            <text x="12" y="4" fontFamily="JetBrains Mono, monospace" fontSize={on ? 13 : 11} fill={on ? '#e6edf5' : '#93a4b8'} style={{ paintOrder: 'stroke', stroke: '#070b12', strokeWidth: 4 }}>{c.name}</text>
+            {(on || hit || hover === c.id) && (
+              <text x="12" y="4" fontFamily="JetBrains Mono, monospace" fontSize={13} fill="#e6edf5" style={{ paintOrder: 'stroke', stroke: '#070b12', strokeWidth: 4, pointerEvents: 'none' }}>{c.name}</text>
+            )}
           </g>
         )
       })}

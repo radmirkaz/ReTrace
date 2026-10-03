@@ -27,8 +27,8 @@ export default function Live() {
         <SearchBar onResults={setHits} />
         {hits && <Results hits={hits} vehicles={vehicles} cameras={cameras} onPick={(h) => { open(h.cam, h.gid); setHits(null) }} onClose={() => setHits(null)} />}
         <div className="mono" style={{ position: 'absolute', left: 16, bottom: 14, fontSize: 11, color: 'var(--dim)', lineHeight: 1.7 }}>
-          {cameras.length} CAMERAS · {Object.keys(vehicles).length} VEHICLES INDEXED · {getMode() === 'live' ? 'LIVE GPU BACKEND' : 'CACHED DEMO'}<br />
-          Demo feeds from public datasets, placed on Vancouver for illustration.
+          <span className="blink" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--rose)', marginRight: 6 }} />
+          {cameras.length} CAMERAS ONLINE · {Object.keys(vehicles).length} VEHICLES INDEXED
         </div>
       </div>
 
@@ -52,7 +52,7 @@ export default function Live() {
               <div>
                 <div className="label" style={{ color: 'var(--teal)', fontSize: 11 }}>{cam.view} · {cam.condition} · {cam.res}</div>
                 <h2 style={{ fontSize: 24, margin: '6px 0 2px' }}>{cam.name}</h2>
-                <div className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>Feed: {cam.source}</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--faint)' }}>Feed source: {cam.source}</div>
               </div>
               <button className="btn" aria-label="Close camera" onClick={() => { setCamId(undefined); setGid(undefined) }}>✕</button>
             </div>
@@ -122,13 +122,13 @@ function VehicleCard({ v, cameras, onJump, onBack }: { v: Vehicle; cameras: Came
           </div>
         ))}
       </div>
-      <div className="label" style={{ color: 'var(--dim)', fontSize: 11, margin: '18px 0 10px' }}>Most similar on other cameras</div>
+      <div className="label" style={{ color: 'var(--dim)', fontSize: 11, margin: '18px 0 10px' }}>{v.sightings.some((s) => s.verified) ? 'Same car on other cameras' : 'Most similar on other cameras'}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {v.sightings.slice(1).map((s) => (
           <button key={s.cam + s.track} className="btn" onClick={() => onJump(s.cam, `${s.cam}:${s.track}`)} style={{ padding: 6, gap: 10, justifyContent: 'flex-start' }}>
             <img src={asset(s.crop)} alt="" style={{ width: 64, aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 4 }} />
             <span style={{ flex: 1, textAlign: 'left', fontSize: 13 }}>{name(s.cam)} · #{s.track}</span>
-            <span className="mono" style={{ fontSize: 12, color: 'var(--amber)' }}>{s.sim.toFixed(2)}</span>
+            <span className="mono" style={{ fontSize: 12, color: s.verified ? 'var(--teal)' : 'var(--amber)' }}>{s.verified ? '✓ ' : ''}{s.sim.toFixed(2)}</span>
           </button>
         ))}
       </div>

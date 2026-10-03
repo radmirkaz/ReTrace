@@ -10,14 +10,14 @@ export default function Landing() {
   const [vehicles, setVehicles] = useState<Record<string, Vehicle>>({})
   const [error, setError] = useState('')
   useEffect(() => {
-    Promise.all([loadLanding(), loadVehicles()]).then(([l, v]) => { setData(l); setVehicles(v) }).catch((e) => setError(String(e)))
+    loadLanding().then(async (l) => { setData(l); setVehicles(l.vehicles ?? (await loadVehicles())) }).catch((e) => setError(String(e)))
   }, [])
 
   return (
     <main>
       <Hero poster={data ? asset(data.trace.poster) : undefined} />
       <Problem />
-      {error && <p className="wrap mono" style={{ color: 'var(--rose)' }}>Demo cache missing: {error}. Run pipeline/build_cache.py.</p>}
+      {error && <p className="wrap mono" style={{ color: 'var(--rose)' }}>Could not load footage: {error}</p>}
       {data && (
         <>
           <AnyCamera scenes={data.scenes} />

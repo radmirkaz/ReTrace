@@ -1,5 +1,3 @@
-import { getMode } from '../data'
-
 interface Props {
   page: 'landing' | 'live'
   nerd: boolean
@@ -30,7 +28,6 @@ export default function Nav({ page, nerd, onNerd }: Props) {
         <button className="btn mono" onClick={onNerd} aria-pressed={nerd} style={{ fontSize: 13, borderColor: nerd ? 'var(--violet)' : undefined, color: nerd ? 'var(--violet)' : undefined }}>
           {'</>'} {nerd ? 'Hide' : 'Under the hood'}
         </button>
-        <span className="chip" title="Live = GPU backend reachable; cached = bundled demo data">{getMode() === 'live' ? '● LIVE BACKEND' : '○ CACHED DEMO'}</span>
       </nav>
     </header>
   )

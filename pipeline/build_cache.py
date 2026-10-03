@@ -1,15 +1,21 @@
-"""Build the website's demo cache from exported clips.
+"""Build the website's data from exported footage.
 
-For every camera clip in demo_footage/web this:
-  * crops each tracked vehicle at its largest appearance,
-  * runs the re-identification model for make/model/generation (top-5) and a
-    2048-D appearance embedding,
-  * links vehicles across cameras by embedding similarity,
-  * ranks crops with CLIP for the landing page's witness query.
+Two sets are indexed the same way:
+  * story scenes (pipeline/export_cameras.py → demo_footage/web) — short scrub clips for the landing page,
+  * live feeds (pipeline/export_live.py → demo_footage/live) — 45 s looping feeds for the city map.
+
+For every camera this:
+  * picks each vehicle's best crops (pipeline/crops.py: not cut off, not occluded, sharp),
+  * runs the re-identification model on up to 4 crops and averages class probabilities
+    and the 2048-D appearance embedding,
+  * links vehicles across cameras by embedding similarity; the CityFlow corridor target
+    is additionally matched to ground truth so the landing page's trace is verified,
+  * ranks crops with CLIP for the landing page's witness statement.
 
 Run on the GPU PC from the repository root (canai env):
     python pipeline/build_cache.py
-Writes web/public/cache/{cameras,vehicles,landing}.json plus clips/, tracks/, crops/.
+Writes web/public/cache/{cameras,vehicles}.json + clips/, tracks/, crops/ for the map and
+web/public/cache/story/ + landing.json for the landing page.
 """
 import json
 import shutil
@@ -23,36 +29,33 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 from PIL import Image
 
+from crops import select_crops
+
 ROOT = Path(__file__).resolve().parents[1]
 CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")  # baseline project: re-ID weights and class metadata, read-only
-CLIPS = ROOT / "demo_footage" / "web"
+WEB = ROOT / "demo_footage" / "web"
+LIVE = ROOT / "demo_footage" / "live"
 CACHE = ROOT / "web" / "public" / "cache"
 REID_WEIGHTS = CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt"
 CLASS_META = CANAI / "submission" / "notebooks" / "llm_data_9630_classes.json"
 CLIP_MODEL = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+LOCATIONS = json.loads((Path(__file__).parent / "map" / "camera_locations.json").read_text())
 
 sys.path.append(str(CANAI / "submission" / "reid"))
 import src.models.classifier  # noqa: E402  (baseline model definition)
 
-# Demo feeds placed at real Vancouver locations. `source` is always shown in the UI.
-CAMERAS = [
-    dict(id="hwy1-boundary", name="Hwy 1 at Boundary Rd", lat=49.2590, lon=-123.0235, clip="overpass", view="overpass", condition="day", source="Highway overpass clip (EU)"),
-    dict(id="main-kingsway", name="Main St & Kingsway", lat=49.2590, lon=-123.1003, clip="pole", view="pole", condition="day", source="Urban Tracker · Sherbrooke, QC"),
-    dict(id="knight-bridge", name="Knight St Bridge", lat=49.2050, lon=-123.0770, clip="dusk", view="overpass", condition="dusk", source="Motorway at dusk (UK)"),
-    dict(id="oak-bridge", name="Oak St Bridge", lat=49.2040, lon=-123.1270, clip="longrange", view="overpass", condition="day", source="Motorway, 720p (UK)"),
-]
-
 LANDING_SCENES = [
-    ("overpass", "Overpass", "Looking down the lanes from ~8 m."),
-    ("pole", "Pole camera", "An old city CCTV corner cam — 800×600."),
-    ("dusk", "Dusk, dense traffic", "Low sun, glare and heavy occlusion."),
-    ("longrange", "Long range, low-res", "Small, distant vehicles at 720p."),
+    ("hwy1-boundary", "Overpass", "Looking down the lanes from ~8 m."),
+    ("main-broadway", "Pole camera", "An old city CCTV corner cam — 800×600."),
+    ("granville-broadway", "Rain", "Wet road, spray and reflections."),
+    ("georgia-denman", "Night", "Streetlights, headlights and glare."),
+    ("marine-main", "Snow", "Snow on the road at night."),
+    ("oak-bridge", "Long range, low-res", "Small, distant vehicles at 720p."),
 ]
-TRACE_CLIP = "dusk"
 WITNESS = {
-    "transcript": "It was a white sedan, maybe a BMW. It hit the cyclist and kept going east on Kingsway, around nine-thirty.",
-    "query": "a white sedan car",
+    "transcript": "It was a white pickup truck, kind of big. It hit the cyclist and kept going east on Kingsway, around nine-thirty.",
+    "query": "a white pickup truck",
 }
 
 
@@ -65,7 +68,7 @@ def pretty_class(path: str) -> str:
 
 
 def prior_weights(meta, camera_region="USA"):
-    """Same regional prior idea as the baseline: down-weight models not sold in North America."""
+    """Regional prior from the baseline: down-weight models not sold in North America."""
     w = np.ones(len(meta), dtype=np.float32)
     for item in meta:
         prior = 1.0
@@ -97,125 +100,154 @@ def colour_name(crop_bgr: np.ndarray) -> str:
     return "red"
 
 
-def best_frames(tracks: dict) -> dict:
-    """track id -> (frame index, box) where the vehicle is largest on screen."""
-    best = {}
-    for i, frame in enumerate(tracks["frames"]):
-        for tid, x1, y1, x2, y2, _conf, _cls in frame:
-            area = (x2 - x1) * (y2 - y1)
-            if tid not in best or area > best[tid][2]:
-                best[tid] = (i, (x1, y1, x2, y2), area)
-    return best
+def iou(a, b):
+    ix = max(0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    return inter / max(1e-6, (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter)
 
 
-def main():
+class Models:
+    def __init__(self):
+        meta = json.loads(CLASS_META.read_text())
+        self.names = {int(m["class_id"]): pretty_class(m["class"]) for m in meta}
+        self.priors = torch.from_numpy(prior_weights(meta)).to(DEVICE)
+        self.reid = src.models.classifier.EffNetv2(class_num=len(meta), features_dim=2048, model_name="m", mix_prec=True)
+        ckpt = torch.load(REID_WEIGHTS, map_location=DEVICE)
+        self.reid.load_state_dict(ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) else ckpt)
+        self.reid.to(DEVICE).eval()
+        self.tf = T.Compose([T.Resize((300, 300)), T.ToTensor(), T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        from transformers import CLIPModel, CLIPProcessor
+        self.clip = CLIPModel.from_pretrained(CLIP_MODEL).to(DEVICE).eval()
+        self.proc = CLIPProcessor.from_pretrained(CLIP_MODEL)
+
+
+def index(M, src_dir, spec_name, out):
+    """Crop, identify and link every vehicle of one footage set; assets go under `out`."""
     for sub in ("clips", "tracks", "crops"):
-        (CACHE / sub).mkdir(parents=True, exist_ok=True)
-    meta = json.loads(CLASS_META.read_text())
-    names = {int(m["class_id"]): pretty_class(m["class"]) for m in meta}
-    priors = torch.from_numpy(prior_weights(meta)).to(DEVICE)
+        d = out / sub
+        if d.exists():
+            shutil.rmtree(d)
+        d.mkdir(parents=True)
+    rel = out.relative_to(CACHE).as_posix()
+    rel = "" if rel == "." else rel + "/"
+    spec = json.loads((src_dir / spec_name).read_text())
+    names, priors, reid, tf, clip_model, clip_proc = M.names, M.priors, M.reid, M.tf, M.clip, M.proc
+    WEB_ = src_dir
+    cameras, vehicles, emb, clip_emb, keys = [], {}, [], [], []
+    stats = {"tracks": 0, "identified": 0, "skipped_unclean": 0}
+    for cam in spec["cameras"]:
+        cid = cam["id"]
+        web_tracks = json.loads((WEB_ / f"{cid}.json").read_text())
+        hi_tracks = json.loads((WEB_ / f"{cid}_hi.json").read_text())
+        shutil.copy(WEB_ / f"{cid}.mp4", out / "clips" / f"{cid}.mp4")
+        shutil.copy(WEB_ / f"{cid}.json", out / "tracks" / f"{cid}.json")
+        shutil.copy(WEB_ / f"{cid}.jpg", out / "clips" / f"{cid}.jpg")
+        if cid in LOCATIONS:  # real intersection from OSM (pipeline/map/locate_cameras.py)
+            cam = {**cam, "lat": LOCATIONS[cid][0], "lon": LOCATIONS[cid][1]}
+        cameras.append({**cam, "res": f"{hi_tracks['w']}x{hi_tracks['h']}", "clip": f"{rel}clips/{cid}.mp4",
+                        "tracks": f"{rel}tracks/{cid}.json", "poster": f"{rel}clips/{cid}.jpg"})
 
-    reid = src.models.classifier.EffNetv2(class_num=len(meta), features_dim=2048, model_name="m", mix_prec=True)
-    ckpt = torch.load(REID_WEIGHTS, map_location=DEVICE)
-    reid.load_state_dict(ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) else ckpt)
-    reid.to(DEVICE).eval()
-    tf = T.Compose([T.Resize((300, 300)), T.ToTensor(), T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-
-    from transformers import CLIPModel, CLIPProcessor
-    clip_model = CLIPModel.from_pretrained(CLIP_MODEL).to(DEVICE).eval()
-    clip_proc = CLIPProcessor.from_pretrained(CLIP_MODEL)
-
-    cameras, vehicles, emb_rows, clip_rows, keys = [], {}, [], [], []
-    for cam in CAMERAS:
-        mp4, tj = CLIPS / f"{cam['clip']}.mp4", CLIPS / f"{cam['clip']}.json"
-        if not mp4.exists():
-            print("skip (no clip):", cam["id"])
-            continue
-        tracks = json.loads(tj.read_text())
-        shutil.copy(mp4, CACHE / "clips" / f"{cam['id']}.mp4")
-        shutil.copy(tj, CACHE / "tracks" / f"{cam['id']}.json")
-        shutil.copy(CLIPS / f"{cam['clip']}.jpg", CACHE / "clips" / f"{cam['id']}.jpg")
-        cameras.append({**{k: v for k, v in cam.items() if k != "clip"},
-                        "res": f"{tracks['w']}x{tracks['h']}", "clip": f"clips/{cam['id']}.mp4",
-                        "tracks": f"tracks/{cam['id']}.json", "poster": f"clips/{cam['id']}.jpg"})
-
-        cap = cv2.VideoCapture(str(mp4))
-        for tid, (fi, (x1, y1, x2, y2), _area) in best_frames(tracks).items():
-            if (x2 - x1) < 24 or (y2 - y1) < 18:
-                continue  # too small to identify honestly
-            cap.set(cv2.CAP_PROP_POS_FRAMES, fi)
-            ok, frame = cap.read()
-            if not ok:
+        picks = select_crops(str(WEB_ / f"{cid}_hi.mp4"), hi_tracks, k=4)
+        stats["tracks"] += len(picks)
+        for tid, pick in picks.items():
+            if not pick["clean"]:
+                stats["skipped_unclean"] += 1
                 continue
-            pad = 0.06
-            bx1, by1 = max(0, int(x1 - pad * (x2 - x1))), max(0, int(y1 - pad * (y2 - y1)))
-            bx2, by2 = min(frame.shape[1], int(x2 + pad * (x2 - x1))), min(frame.shape[0], int(y2 + pad * (y2 - y1)))
-            crop = frame[by1:by2, bx1:bx2]
-            gid = f"{cam['id']}:{tid}"
-            crop_rel = f"crops/{cam['id']}_{tid}.jpg"
-            cv2.imwrite(str(CACHE / crop_rel), crop, [cv2.IMWRITE_JPEG_QUALITY, 90])
-            rgb = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+            rgbs = [Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB)) for c in pick["crops"]]
             with torch.no_grad():
-                logits, feats = reid(tf(rgb).unsqueeze(0).to(DEVICE))
-                probs = F.softmax(logits.float(), dim=1)[0] * priors
-                probs = probs / probs.sum()
-                top = torch.topk(probs, 5)
-                ci = clip_model.get_image_features(**clip_proc(images=rgb, return_tensors="pt").to(DEVICE))
-            emb_rows.append(F.normalize(feats.float(), dim=1)[0].cpu().numpy())
-            clip_rows.append(F.normalize(ci.float(), dim=1)[0].cpu().numpy())
+                logits, feats = reid(torch.stack([tf(r) for r in rgbs]).to(DEVICE))
+                probs = (F.softmax(logits.float(), dim=1) * priors)
+                probs = (probs / probs.sum(dim=1, keepdim=True)).mean(0)
+                feat = F.normalize(F.normalize(feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
+                ci = clip_model.get_image_features(**clip_proc(images=rgbs[0], return_tensors="pt").to(DEVICE))
+            top = torch.topk(probs, 5)
+            gid = f"{cid}:{tid}"
+            crop_rel = f"{rel}crops/{cid}_{tid}.jpg"
+            cv2.imwrite(str(CACHE / crop_rel), pick["crops"][0], [cv2.IMWRITE_JPEG_QUALITY, 92])
+            emb.append(feat.cpu().numpy())
+            clip_emb.append(F.normalize(ci.float(), dim=1)[0].cpu().numpy())
             keys.append(gid)
+            stats["identified"] += 1
             vehicles[gid] = {
-                "gid": gid, "crop": crop_rel, "color": colour_name(crop),
+                "gid": gid, "crop": crop_rel, "color": colour_name(pick["crops"][0]), "quality": pick["quality"],
                 "top5": [{"name": names[int(i)], "p": round(float(p), 4)} for p, i in zip(top.values, top.indices)],
-                "sightings": [{"cam": cam["id"], "track": int(tid), "t": round(fi / tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
+                "sightings": [{"cam": cid, "track": int(tid), "t": round(pick["frames"][0] / hi_tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
             }
-        cap.release()
-        print(cam["id"], "vehicles so far:", len(vehicles))
+        print(f"{cid}: {len(picks)} tracks, {sum(p['clean'] for p in picks.values())} clean")
 
-    # Cross-camera links: nearest appearance embeddings on *other* cameras.
-    E = np.stack(emb_rows)
+    E = np.stack(emb)
     S = E @ E.T
-    for i, gid in enumerate(keys):
+    index = {k: i for i, k in enumerate(keys)}
+
+    # Ground-truth corridor target: our track overlapping the CityFlow GT box at its mid appearance.
+    target = {}
+    for cid, t in spec.get("trace", {}).items():
+        hi = json.loads((WEB_ / f"{cid}_hi.json").read_text())
+        fi = min(hi["n"] - 1, int(round(t["t"] * hi["fps"])))
+        x, y, w, h = t["box"]
+        best = max(hi["frames"][fi], key=lambda d: iou(d[1:5], (x, y, x + w, y + h)), default=None)
+        if best and iou(best[1:5], (x, y, x + w, y + h)) > 0.3 and f"{cid}:{best[0]}" in vehicles:
+            target[cid] = f"{cid}:{best[0]}"
+    t_keys = list(target.values())
+
+    for gid in keys:
+        i = index[gid]
         cam_i = gid.split(":")[0]
+        if gid in t_keys:  # verified: the same physical car on every corridor camera
+            others = [k for k in t_keys if k != gid]
+            for k in others:
+                vehicles[gid]["sightings"].append({**vehicles[k]["sightings"][0], "sim": round(float(S[i, index[k]]), 3), "verified": True})
+            continue
         for j in np.argsort(-S[i]):
             if j == i or keys[j].split(":")[0] == cam_i:
                 continue
-            v = vehicles[keys[j]]
-            vehicles[gid]["sightings"].append({**v["sightings"][0], "sim": round(float(S[i, j]), 3)})
+            vehicles[gid]["sightings"].append({**vehicles[keys[j]]["sightings"][0], "sim": round(float(S[i, j]), 3)})
             if len(vehicles[gid]["sightings"]) >= 4:
                 break
-    np.save(ROOT / "demo_footage" / "reid_embeddings.npy", E)
 
-    # Witness query ranked by CLIP over every crop.
+    print(json.dumps({**stats, "set": spec_name, "cameras": len(cameras), "corridor_target": t_keys}))
+    return {"cameras": cameras, "vehicles": vehicles, "keys": keys, "E": E, "C": np.stack(clip_emb), "target": t_keys}
+
+
+def main():
+    M = Models()
+    live = index(M, LIVE, "live_spec.json", CACHE)
+    (CACHE / "cameras.json").write_text(json.dumps(live["cameras"], indent=1))
+    (CACHE / "vehicles.json").write_text(json.dumps(live["vehicles"]))
+    np.save(ROOT / "demo_footage" / "reid_embeddings.npy", live["E"])
+    np.save(ROOT / "demo_footage" / "clip_embeddings.npy", live["C"])
+    (ROOT / "demo_footage" / "embedding_keys.json").write_text(json.dumps(live["keys"]))
+
+    story = index(M, WEB, "cameras_spec.json", CACHE / "story")
+    cameras, vehicles, keys, t_keys = story["cameras"], story["vehicles"], story["keys"], story["target"]
+    clip_model, clip_proc = M.clip, M.proc
     with torch.no_grad():
         q = clip_model.get_text_features(**clip_proc(text=[WITNESS["query"]], return_tensors="pt", padding=True).to(DEVICE))
     qv = F.normalize(q.float(), dim=1)[0].cpu().numpy()
-    C = np.stack(clip_rows)
+    C = story["C"]
     scores = C @ qv
     order = np.argsort(-scores)
     hits = [{"gid": keys[i], "cam": keys[i].split(":")[0], "track": int(keys[i].split(":")[1]),
              "crop": vehicles[keys[i]]["crop"], "score": round(float(scores[i]), 4)} for i in order[:8]]
-    np.save(ROOT / "demo_footage" / "clip_embeddings.npy", C)
-    (ROOT / "demo_footage" / "embedding_keys.json").write_text(json.dumps(keys))
 
-    trace_cam = next(c for c in CAMERAS if c["clip"] == TRACE_CLIP)
-    trace_target = hits[0] if hits[0]["cam"] == trace_cam["id"] else max(
-        (v for v in vehicles.values() if v["sightings"][0]["cam"] == trace_cam["id"]),
-        key=lambda v: v["top5"][0]["p"], default=None)
-    t_gid = trace_target["gid"]
+    # Landing trace: the corridor target on the camera where its best crop is cleanest.
+    if t_keys:
+        t_gid = max(t_keys, key=lambda k: vehicles[k]["quality"])
+    else:
+        t_gid = max(vehicles, key=lambda k: vehicles[k]["top5"][0]["p"])
+    t_cam = t_gid.split(":")[0]
+    by_id = {c["id"]: c for c in cameras}
     landing = {
-        "scenes": [{"cam": c["id"], "title": t, "sub": s, "clip": f"clips/{c['id']}.mp4", "tracks": f"tracks/{c['id']}.json",
-                    "poster": f"clips/{c['id']}.jpg", "res": next(x["res"] for x in cameras if x["id"] == c["id"])}
-                   for clip, t, s in LANDING_SCENES for c in CAMERAS if c["clip"] == clip and any(x["id"] == c["id"] for x in cameras)],
-        "trace": {"cam": trace_cam["id"], "clip": f"clips/{trace_cam['id']}.mp4", "tracks": f"tracks/{trace_cam['id']}.json",
-                  "poster": f"clips/{trace_cam['id']}.jpg", "track": int(t_gid.split(":")[1]),
-                  "t": vehicles[t_gid]["sightings"][0]["t"], "vehicle": t_gid},
+        "scenes": [{"cam": c, "title": t, "sub": s, "clip": by_id[c]["clip"], "tracks": by_id[c]["tracks"],
+                    "poster": by_id[c]["poster"], "res": by_id[c]["res"]} for c, t, s in LANDING_SCENES if c in by_id],
+        "trace": {"cam": t_cam, "clip": by_id[t_cam]["clip"], "tracks": by_id[t_cam]["tracks"], "poster": by_id[t_cam]["poster"],
+                  "track": int(t_gid.split(":")[1]), "t": vehicles[t_gid]["sightings"][0]["t"], "vehicle": t_gid},
         "witness": {**WITNESS, "hits": hits},
+        "vehicles": vehicles,
     }
-    (CACHE / "cameras.json").write_text(json.dumps(cameras, indent=1))
-    (CACHE / "vehicles.json").write_text(json.dumps(vehicles))
-    (CACHE / "landing.json").write_text(json.dumps(landing, indent=1))
-    print(f"cache: {len(cameras)} cameras, {len(vehicles)} vehicles, witness top hit {hits[0]['gid']} {hits[0]['score']}")
+    (CACHE / "landing.json").write_text(json.dumps(landing))
+    print(json.dumps({"witness_top": hits[:3], "trace": landing["trace"]["vehicle"]}, indent=1))
 
 
 if __name__ == "__main__":

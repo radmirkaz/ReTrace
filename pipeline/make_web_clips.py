@@ -30,11 +30,11 @@ CLIPS = [
 ]
 
 
-def cut(src: Path, start: float, dur: float, dst: Path) -> None:
+def cut(src: Path, start: float, dur: float, dst: Path, fps: float = 25, width: int = WIDTH) -> None:
     """Re-encode a clip so every frame is a keyframe; this is what makes scroll scrubbing smooth."""
     subprocess.run([
         "ffmpeg", "-v", "error", "-y", "-ss", str(start), "-t", str(dur), "-i", str(src),
-        "-vf", f"scale={WIDTH}:-2,fps=25", "-an",
+        "-vf", f"scale='min({width},iw)':-2,fps={fps}", "-an",
         "-c:v", "libx264", "-preset", "slow", "-crf", "26", "-pix_fmt", "yuv420p",
         "-g", "1", "-keyint_min", "1", "-movflags", "+faststart", str(dst),
     ], check=True)

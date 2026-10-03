@@ -3,8 +3,6 @@ import TrackedVideo from '../components/TrackedVideo'
 import { asset, type LandingScene, type Tracks } from '../data'
 import { usePinProgress, span } from '../hooks'
 
-const SEG_EXTRA = ['Rain · Snow · Night', 'Same intersections, only the weather changes (AAU RainSnow).']
-
 export default function AnyCamera({ scenes }: { scenes: LandingScene[] }) {
   const [ref, p] = usePinProgress<HTMLElement>()
   const [tracks, setTracks] = useState<Record<string, Tracks>>({})
@@ -12,16 +10,15 @@ export default function AnyCamera({ scenes }: { scenes: LandingScene[] }) {
     scenes.forEach((s) => fetch(asset(s.tracks)).then((r) => r.json()).then((t: Tracks) => setTracks((m) => ({ ...m, [s.cam]: t }))))
   }, [scenes])
 
-  const segs = scenes.length + 1
+  const segs = scenes.length
   const seg = 1 / segs
   const active = Math.min(segs - 1, Math.floor(p / seg))
-  const weatherO = span(p, scenes.length * seg - 0.02, scenes.length * seg + 0.01)
   const cur = scenes[Math.min(active, scenes.length - 1)]
-  const items = scenes.map((s) => [s.title, s.sub]).concat([SEG_EXTRA])
+  const items = scenes.map((s) => [s.title, s.sub])
   const curTracks = cur ? tracks[cur.cam] : undefined
   const q = span(p, active * seg, (active + 1) * seg)
   const curFrame = curTracks ? Math.round(span(q, 0.05, 0.95) * (curTracks.n - 1)) : 0
-  const count = active < scenes.length && curTracks ? curTracks.frames[curFrame]?.length ?? 0 : 0
+  const count = curTracks ? curTracks.frames[curFrame]?.length ?? 0 : 0
 
   return (
     <section ref={ref} style={{ position: 'relative', height: `${segs * 110}vh` }}>
@@ -62,24 +59,13 @@ export default function AnyCamera({ scenes }: { scenes: LandingScene[] }) {
                   </div>
                 )
               })}
-              <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, padding: 10, background: '#070b12', opacity: weatherO }}>
-                {['Rain', 'Snow', 'Night'].map((w, i) => {
-                  const k = span(p, scenes.length * seg + i * 0.02, scenes.length * seg + 0.04 + i * 0.02)
-                  return (
-                    <div key={w} style={{ borderRadius: 8, border: '1px dashed var(--line-2)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 16, opacity: k, transform: `translateY(${24 * (1 - k)}px)` }}>
-                      <div style={{ fontSize: 22, fontWeight: 700 }}>{w}</div>
-                      <div className="mono" style={{ fontSize: 11, color: '#93a4b8', marginTop: 6 }}>AAU RAINSNOW · NEXT EXPORT</div>
-                    </div>
-                  )
-                })}
-              </div>
               <span className="chip" style={{ position: 'absolute', left: 12, top: 12, display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text)' }}>
                 <span className="blink" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--rose)' }} />
-                {active < scenes.length ? cur?.title.toUpperCase() : 'WEATHER SET · DENMARK'}
+                {cur?.title.toUpperCase()}
               </span>
-              <span className="chip" style={{ position: 'absolute', right: 12, top: 12 }}>{active < scenes.length ? cur?.res : '640x480'}</span>
-              <span className="chip" style={{ position: 'absolute', left: 12, bottom: 12, opacity: 1 - weatherO, color: 'var(--text)', fontSize: 12 }}>VEHICLES <b style={{ color: 'var(--teal)' }}>{count}</b></span>
-              <span className="chip" style={{ position: 'absolute', right: 12, bottom: 12, opacity: 1 - weatherO }}>YOLOv12 + BYTETRACK · NO FINE-TUNING</span>
+              <span className="chip" style={{ position: 'absolute', right: 12, top: 12 }}>{cur?.res}</span>
+              <span className="chip" style={{ position: 'absolute', left: 12, bottom: 12, color: 'var(--text)', fontSize: 12 }}>VEHICLES <b style={{ color: 'var(--teal)' }}>{count}</b></span>
+              <span className="chip" style={{ position: 'absolute', right: 12, bottom: 12 }}>YOLOv12 + BYTETRACK · NO FINE-TUNING</span>
             </div>
             <div className="mono" style={{ marginTop: 10, fontSize: 11, color: 'var(--faint)' }}>Scroll scrubs the real footage; every box is the detector’s own output.</div>
           </div>

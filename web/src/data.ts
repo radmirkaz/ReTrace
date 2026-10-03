@@ -30,7 +30,7 @@ export interface Camera {
 
 export interface Prediction { name: string; p: number }
 
-export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number }
+export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number; verified?: boolean }
 
 export interface Vehicle {
   gid: string
@@ -38,6 +38,7 @@ export interface Vehicle {
   top5: Prediction[]
   color?: string
   speed?: number
+  quality?: number
   sightings: Sighting[]
 }
 
@@ -48,26 +49,18 @@ const CACHE = '/cache'
 
 export type Mode = 'live' | 'cached'
 
+// Feeds, tracks and vehicles always load from the bundled index (fast, works offline);
+// the GPU backend is only used for CLIP search and Whisper transcription.
 let mode: Mode = API ? 'live' : 'cached'
 export const getMode = () => mode
 
-async function getJson<T>(livePath: string, cachePath: string): Promise<T> {
-  if (mode === 'live' && API) {
-    try {
-      const r = await fetch(API + livePath, { signal: AbortSignal.timeout(4000) })
-      if (r.ok) return (await r.json()) as T
-    } catch {
-      // fall through to the cache; the PC may be offline during a demo
-    }
-    mode = 'cached'
-  }
-  const r = await fetch(CACHE + cachePath)
+async function getJson<T>(_livePath: string, cachePath: string): Promise<T> {
+  const r = await fetch(CACHE + cachePath, { cache: 'no-cache' })
   if (!r.ok) throw new Error(`missing ${cachePath}`)
   return (await r.json()) as T
 }
 
-/** Asset paths in the cache are relative ("clips/x.mp4"); live mode serves the same files from the API. */
-export const asset = (p: string) => (mode === 'live' && API ? `${API}/files/${p}` : `${CACHE}/${p}`)
+export const asset = (p: string) => `${CACHE}/${p}`
 
 export const loadCameras = () => getJson<Camera[]>('/cameras', '/cameras.json')
 export const loadTracks = (cam: Camera) => getJson<Tracks>(`/cameras/${cam.id}/tracks`, '/' + cam.tracks)
@@ -76,8 +69,12 @@ export const loadLanding = () => getJson<LandingData>('/landing', '/landing.json
 
 export async function searchText(q: string): Promise<SearchHit[]> {
   if (mode === 'live' && API) {
-    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`)
-    if (r.ok) return r.json()
+    try {
+      const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(6000) })
+      if (r.ok) return r.json()
+    } catch {
+      mode = 'cached' // backend unreachable: keep the demo running on label matching
+    }
   }
   // Offline fallback: match the query words against cached class names and colours.
   const vehicles = await loadVehicles()
@@ -109,4 +106,5 @@ export interface LandingData {
   scenes: LandingScene[]
   trace: { cam: string; clip: string; tracks: string; poster: string; track: number; t: number; vehicle: string }
   witness?: { transcript: string; query: string; hits: SearchHit[] }
+  vehicles?: Record<string, Vehicle>
 }
