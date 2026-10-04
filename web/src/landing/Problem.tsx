@@ -43,7 +43,7 @@ export default function Problem() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
         <div style={card}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Cameras per 10,000 people</div>
-          <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 4 }}>Dubai: 10,000+ cameras, 4.8M residents (2026)</div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 4 }}>Dubai: 10,000+ cameras, 4.8M residents, tourists excluded (2026)</div>
           <Row name="Moscow" value="169" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {Array.from({ length: 169 }, (_, i) => (
