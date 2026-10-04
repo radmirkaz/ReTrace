@@ -5,6 +5,7 @@ Run on a CUDA machine from the repository root:
 Then start the web app with VITE_API_URL=http://<pc-address>:8000.
 """
 import json
+import re
 import tempfile
 import threading
 from functools import lru_cache
@@ -141,12 +142,28 @@ def search(q: str, k: int = 12):
     v = read("vehicles.json")
     makes = [w for w in words if w in MAKES]
 
-    def make_hit(gid):
-        x = v.get(gid, {})
-        return bool(makes) and x.get("reliable") and any(m in x["top5"][0]["name"].lower() for m in makes)
+    # Model names as spoken: "5 series" / "5th series" -> "5series"; also adjacent pairs like "land cruiser".
+    joined = re.sub(r"(\d+)(?:st|nd|rd|th)?\s+series", r"\1series", " ".join(words))
+    tokens = set(joined.split()) | {a + b for a, b in zip(joined.split(), joined.split()[1:])}
 
-    # Matching colour/body first, then a spoken/typed make, then CLIP similarity.
-    order = sorted(range(len(keys)), key=lambda i: (not matches(attrs.get(keys[i]), colours, body), not make_hit(keys[i]), -scores[i]))
+    def label(gid):
+        x = v.get(gid, {})
+        return x["top5"][0]["name"] if x.get("reliable") else ""
+
+    def model_of(name):
+        return name.split(" (")[0].split(" ", 1)[1].replace(" ", "").lower() if " " in name else ""
+
+    def model_hit(gid):
+        m = model_of(label(gid))
+        return len(m) >= 2 and m in tokens
+
+    def make_hit(gid):
+        return bool(makes) and any(mk in label(gid).lower() for mk in makes)
+
+    # Matching colour/body first, then a named model, then (only if no model was named) a named make, then CLIP.
+    named_model = any(model_hit(g) for g in keys)
+    order = sorted(range(len(keys)), key=lambda i: (not matches(attrs.get(keys[i]), colours, body), not model_hit(keys[i]),
+                                                    named_model or not make_hit(keys[i]), -scores[i]))
     out = []
     for i in order[:k]:
         gid = keys[i]
