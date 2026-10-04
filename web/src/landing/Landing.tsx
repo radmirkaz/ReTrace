@@ -31,7 +31,7 @@ export default function Landing() {
 }
 
 // Hero backdrop: one frame per camera, cycling through angles and conditions.
-const HERO_CAMS = ['hwy1-boundary', 'kingsway-nanaimo', 'georgia-denman', 'cambie-king-edward-e', 'granville-broadway', 'knight-bridge', 'broadway-arbutus', 'marine-main']
+const HERO_CAMS = ['knight-bridge', 'broadway-arbutus', 'hwy1-boundary', 'kingsway-nanaimo', 'georgia-denman', 'cambie-king-edward-e', 'granville-broadway', 'marine-main']
 const SLIDE_MS = 6000
 
 function Hero() {
