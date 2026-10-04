@@ -43,10 +43,17 @@ export default function Problem() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
         <div style={card}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Cameras per 10,000 people</div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 4 }}>Dubai: 10,000+ cameras, 4.8M residents (2026)</div>
           <Row name="Moscow" value="169" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {Array.from({ length: 169 }, (_, i) => (
               <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--faint)', opacity: i < dots ? 1 : 0.12 }} />
+            ))}
+          </div>
+          <Row name="Dubai" value="21+" />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {Array.from({ length: 21 }, (_, i) => (
+              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--faint)', opacity: i < Math.round(dots * 21 / 169) ? 1 : 0.12 }} />
             ))}
           </div>
           <Row name="Vancouver" value="3" color="var(--rose)" />
