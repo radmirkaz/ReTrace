@@ -1,0 +1,8 @@
+{
+ "gpu": "NVIDIA GeForce RTX 3090",
+ "detect_track_fps_1080p": 67.6,
+ "detect_track_fps_4K-source downscaled 1080p": 69.3,
+ "reid_crops_per_s": 427.3,
+ "match_ms_vs_1M_vehicles": 9.89,
+ "index_size_for_1M_vehicles_GB": 4.09
+}

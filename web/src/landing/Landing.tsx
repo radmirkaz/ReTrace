@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { asset, loadCameras, loadLanding, loadVehicles, type LandingData, type Vehicle } from '../data'
 import AnyCamera from './AnyCamera'
+import CostSpeed from './CostSpeed'
 import Problem from './Problem'
 import TraceOne from './TraceOne'
 import Witness from './Witness'
@@ -25,6 +26,7 @@ export default function Landing() {
           <TraceOne trace={data.trace} vehicles={vehicles} />
         </>
       )}
+      <CostSpeed />
       <Outro />
     </main>
   )

@@ -9,9 +9,7 @@ interface Metrics {
 }
 interface Curves { precision: number[]; recall: number[]; map50: number[]; map5095: number[]; epochs: number }
 
-const SLIDES = ['Overview', 'Detection', 'Re-ID data', 'Re-ID model', 'Smart search', 'Speed', 'Evaluation', "What's next"]
-
-const COVERAGE = [['USA', 20.9], ['Japan', 13.5], ['Germany', 13.5], ['Italy', 6.4], ['France', 5.9], ['Korea', 5.1], ['China', 4.4], ['UK', 3.8], ['Other', 26.5]] as const
+const SLIDES = ['Overview', 'Detection', 'Re-identification', 'Smart search']
 
 /** Full-screen technical presentation ("Under the hood"): snap-scrolling slides, arrow keys to move. */
 export default function Nerd({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -91,36 +89,17 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               </Cols>
             </Slide>
 
-            <Slide i={2} root={deck} kicker="2 / Re-identification data" title="500,000 images. 9,630 models and generations.">
-              <Stats items={[['900', 'brands'], ['1930s to 2025', 'model years'], ['All origins', 'markets worldwide'], ['14,000+', 'unique vehicles seen']]} />
-              <Cols>
-                <Cards items={[
-                  ['1 · Pretrain (top 2, MCS 2022)', 'CompCars, Google Images and several Kaggle sets · ~5,600 classes'],
-                  ['2 · Fine-tune', 'GigaFlexhicle (top 1, MCS 2022) and Google Images for newer models · ~9,600 classes'],
-                ]} />
-                <div>
-                  <div className="label" style={{ color: 'var(--dim)', fontSize: 11, marginBottom: 10 }}>Share of fine-tune images by brand origin</div>
-                  {COVERAGE.map(([k, v]) => (
-                    <div key={k} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px', gap: 10, alignItems: 'center', fontSize: 13, marginBottom: 6 }}>
-                      <span>{k}</span>
-                      <div style={{ height: 6, background: '#141c28', borderRadius: 3 }}><motion.div initial={{ width: 0 }} whileInView={{ width: `${(v / 27) * 100}%` }} transition={{ duration: 0.8 }} style={{ height: '100%', background: 'var(--violet)', borderRadius: 3 }} /></div>
-                      <span className="mono" style={{ color: 'var(--dim)' }}>{v}%</span>
-                    </div>
-                  ))}
-                </div>
-              </Cols>
-            </Slide>
-
-            <Slide i={3} root={deck} kicker="3 / Re-identification model" title="One network: a name and a fingerprint.">
+            <Slide i={2} root={deck} kicker="2 / Re-identification" title="500,000 images. A name and a fingerprint for every car.">
+              <Stats items={[['9,630', 'models and generations'], ['900', 'brands, 1930s to 2025'], ['14,000+', 'unique vehicles seen'], ['91.6%', 'Acc@1, Stanford Cars']]} compact />
               <Cols>
                 <div>
                   <ul style={UL}>
-                    <li>EfficientNetV2-M, 300×300 input, 2048-D embedding</li>
+                    <li>Pretrained (top 2, MCS 2022), then fine-tuned on GigaFlexhicle + Google Images</li>
+                    <li>EfficientNetV2-M, 300×300, 2048-D embedding</li>
                     <li>Cross-entropy + contrastive + circle loss</li>
-                    <li>FP16, 8 epochs, batch 16, LR 6e-5</li>
                     <li>Make/model from the fine-tuned classifier; matching from the pretrained embedding</li>
+                    <li>92.6% MAP@5 on Stanford Cars (93.7% with class + embedding score)</li>
                   </ul>
-                  <Stats items={[['91.6%', 'Acc@1, Stanford Cars'], ['92.6%', 'MAP@5'], ['93.7%', 'MAP@5 with class + embedding score']]} compact />
                 </div>
                 <div>
                   <div className="label" style={{ color: 'var(--dim)', fontSize: 11, marginBottom: 10 }}>Cross-camera re-ID · CityFlowV2 S01 · 36 cars · 5 cameras</div>
@@ -130,7 +109,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               </Cols>
             </Slide>
 
-            <Slide i={4} root={deck} kicker="4 / Smart search" title="Say what you saw. Get the car.">
+            <Slide i={3} root={deck} kicker="3 / Smart search" title="Say what you saw. Get the car.">
               <Cards cols={3} items={[
                 ['Whisper', 'Transcribes a spoken statement, robust to accents and noise.'],
                 ['Query parsing', 'Colour, body type and make are read from the words ("blue pickup, maybe a Toyota").'],
@@ -141,34 +120,6 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               ]} />
             </Slide>
 
-            <Slide i={5} root={deck} kicker="5 / Speed estimation" title="Pixels to km/h with a homography.">
-              <ol style={{ ...UL, listStyle: 'decimal' }}>
-                <li>Four points on the road plane plus a reference distance</li>
-                <li>Homography from image to ground coordinates</li>
-                <li>Pixel displacement becomes metres per frame</li>
-                <li>Frame rate turns it into km/h</li>
-                <li>A smoothing filter removes detection jitter</li>
-              </ol>
-            </Slide>
-
-            <Slide i={6} root={deck} kicker="6 / Evaluation footage" title="Held out, every condition.">
-              <Table head={['Dataset', 'Where', 'What', 'Used for']} rows={[
-                ['CityFlowV2', 'Iowa, USA', '46 cameras, 880 labelled vehicles', 'Kingsway corridor, re-ID benchmark'],
-                ['RoundaboutHD', 'UK', '4 × 4K cameras, 512 vehicles', 'Cambie corridor, 4K feeds'],
-                ['AAU RainSnow', 'Denmark', '22 sequences, rain, snow, night', 'Weather feeds'],
-                ['MIO-TCD', 'Canada + USA', '137k traffic-camera frames', 'Camera quality and angles'],
-              ]} />
-              <p style={P}>Map locations are illustrative; feeds come from these public datasets.</p>
-            </Slide>
-
-            <Slide i={7} root={deck} kicker="7 / What's next" title="From demo to city deployment.">
-              <Cards cols={2} items={[
-                ['Pedestrians and cyclists', 'Extend detection to vulnerable road users for hit-and-run cases.'],
-                ['Newer vehicles', 'Refresh the class set with 2022+ trucks and EVs, the known gap.'],
-                ['Edge processing', 'Detection and crops at the camera; only fingerprints travel to the index.'],
-                ['Municipal pilots', 'Plug into existing camera networks and incident reports, one corridor at a time.'],
-              ]} />
-            </Slide>
           </div>
         </motion.div>
       )}
