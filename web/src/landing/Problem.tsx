@@ -89,7 +89,7 @@ export default function Problem() {
           </div>
         </div>
 
-        <div style={card}>
+        <div style={{ ...card, flex: 1 }}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Feeds aren’t kept</div>
           <div style={{ position: 'relative', margin: '16px 0 12px', aspectRatio: '16 / 9', borderRadius: 6, overflow: 'hidden', background: '#111b28' }}>
             <img src="/cache/story/clips/hwy1-boundary.jpg" alt="Traffic camera still" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1)', opacity: 0.6 }} />
