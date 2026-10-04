@@ -40,8 +40,8 @@ export default function Problem() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-        <div style={card}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+        <div style={{ ...card, flex: '1.45 1 520px', minWidth: 0 }}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Cameras per 10,000 people</div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 4 }}>Dubai: 10,000+ cameras, 4.8M residents, tourists excluded (2026)</div>
           <Row name="Moscow" value="169" tag="mass surveillance · privacy risk" tagColor="var(--rose)" />
@@ -77,15 +77,16 @@ export default function Problem() {
           </p>
         </div>
 
-        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={card}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Plates fail</div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px 0' }}>
-            <div style={{ width: 220, padding: '10px 12px 12px', borderRadius: 8, background: '#f4f4f5', color: '#12304f', textAlign: 'center', boxShadow: 'inset 0 0 0 3px #12304f' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 22, marginTop: 18 }}>
+            <div style={{ width: 210, flex: 'none', padding: '10px 12px 12px', borderRadius: 8, background: '#f4f4f5', color: '#12304f', textAlign: 'center', boxShadow: 'inset 0 0 0 3px #12304f' }}>
               <div style={{ fontSize: 10, letterSpacing: 2, fontWeight: 700 }}>BRITISH COLUMBIA</div>
-              <div className="mono" style={{ fontSize: 40, fontWeight: 600, letterSpacing: 2, filter: `blur(${plate.blur}px)`, color: plate.color, transition: 'filter .4s' }}>{plate.plate}</div>
+              <div className="mono" style={{ fontSize: 38, fontWeight: 600, letterSpacing: 2, filter: `blur(${plate.blur}px)`, color: plate.color, transition: 'filter .4s' }}>{plate.plate}</div>
             </div>
+            <div style={{ flex: '1 1 140px', fontSize: 17, lineHeight: 1.35 }}>{plate.label}</div>
           </div>
-          <div style={{ textAlign: 'center', fontSize: 15 }}>{plate.label}</div>
         </div>
 
         <div style={card}>
@@ -99,6 +100,7 @@ export default function Problem() {
           <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--faint)', marginTop: 6 }}>
             <span>21:00</span><span>NO ARCHIVE</span><span>NOW</span>
           </div>
+        </div>
         </div>
       </div>
 
