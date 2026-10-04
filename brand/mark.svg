@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 260" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- earlier sighting: faint detection bracket and car -->
+  <g stroke="#5EEAD4" stroke-width="7" opacity=".35">
+    <path d="M10 46V12h36M106 12h36v34M142 104v34h-36M46 138H10v-34"/>
+  </g>
+  <g stroke="#5EEAD4" stroke-width="10" opacity=".35" transform="translate(36 44) scale(.45)">
+    <path d="M52 30h56l18 34H34z"/><rect x="18" y="64" width="124" height="44" rx="12"/>
+  </g>
+  <!-- the trace between the two sightings -->
+  <path d="M142 75 C 200 75, 236 78, 236 112" stroke="#5EEAD4" stroke-width="6" stroke-dasharray="2 12"/>
+  <circle cx="142" cy="75" r="7" fill="#5EEAD4" opacity=".55"/>
+  <!-- current sighting: solid bracket with the re-identified car -->
+  <g stroke="#5EEAD4" stroke-width="9">
+    <path d="M166 158V122h40M266 122h40v36M306 216v36h-40M206 252h-40v-36"/>
+  </g>
+  <g stroke="#E6EDF5" stroke-width="8" transform="translate(176 150) scale(.75)">
+    <path d="M52 30h56l18 34H34z"/>
+    <rect x="18" y="64" width="124" height="44" rx="12"/>
+    <path d="M30 108v14M130 108v14"/>
+    <rect x="62" y="80" width="36" height="12" rx="4"/>
+  </g>
+  <circle cx="200" cy="215" r="7" fill="#5EEAD4"/>
+  <circle cx="272" cy="215" r="7" fill="#5EEAD4"/>
+  <circle cx="236" cy="112" r="7" fill="#5EEAD4"/>
+</svg>

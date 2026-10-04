@@ -42,6 +42,31 @@ def whisper_model():
     return whisper.load_model("base", device=DEVICE)
 
 
+# Query words -> body group / colour families (same vocabulary as pipeline/build_cache.py).
+QUERY_BODY = {"sedan": "car", "car": "car", "hatchback": "car", "coupe": "car", "wagon": "car", "suv": "suv", "minivan": "suv",
+              "pickup": "pickup", "truck": "pickup", "van": "van", "bus": "heavy", "lorry": "heavy", "semi": "heavy", "motorcycle": "moto"}
+QUERY_COLOUR = {"white": ["light"], "silver": ["light", "grey"], "beige": ["light", "warm"], "grey": ["grey"], "gray": ["grey"],
+                "black": ["dark"], "brown": ["dark", "warm"], "dark": ["dark"], "light": ["light"], "red": ["red"], "orange": ["red", "warm"],
+                "yellow": ["warm"], "blue": ["blue"], "green": ["green"]}
+
+
+@lru_cache
+def attributes():
+    path = INDEX / "attributes.json"
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def matches(attr, colours, body, min_p=0.25):
+    """Post-processing gate: keep results whose body group and colour family fit the query."""
+    if not attr:
+        return True
+    if body and attr["body"].get(body, 0) < min_p:
+        return False
+    if colours and not attr["night"] and sum(attr["colour"].get(f, 0) for f in colours) < min_p:
+        return False
+    return True
+
+
 @lru_cache
 def crop_index():
     return np.load(INDEX / "clip_embeddings.npy"), json.loads((INDEX / "embedding_keys.json").read_text())
@@ -51,6 +76,7 @@ def crop_index():
 def warm():
     clip()
     crop_index()
+    attributes()
 
 
 @app.get("/health")
@@ -96,9 +122,15 @@ def search(q: str, k: int = 12):
     with torch.no_grad():
         t = model.get_text_features(**proc(text=[q], return_tensors="pt", padding=True).to(DEVICE))
     scores = emb @ F.normalize(t.float(), dim=1)[0].cpu().numpy()
+    words = [w.strip(".,!?").lower() for w in q.split()]
+    colours = sorted({f for w in words for f in QUERY_COLOUR.get(w, [])})
+    body = next((QUERY_BODY[w] for w in words if w in QUERY_BODY), None)
+    attrs = attributes()
+    # Matching colour/body first (ranked by CLIP), anything else only after them.
+    order = sorted(range(len(keys)), key=lambda i: (not matches(attrs.get(keys[i]), colours, body), -scores[i]))
     v = read("vehicles.json")
     out = []
-    for i in np.argsort(-scores)[:k]:
+    for i in order[:k]:
         gid = keys[i]
         cam, track = gid.split(":")
         out.append({"gid": gid, "cam": cam, "track": int(track), "crop": v[gid]["crop"], "score": round(float(scores[i]), 4)})

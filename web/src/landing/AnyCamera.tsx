@@ -65,7 +65,7 @@ export default function AnyCamera({ scenes }: { scenes: LandingScene[] }) {
               </span>
               <span className="chip" style={{ position: 'absolute', right: 12, top: 12 }}>{cur?.res}</span>
               <span className="chip" style={{ position: 'absolute', left: 12, bottom: 12, color: 'var(--text)', fontSize: 12 }}>VEHICLES <b style={{ color: 'var(--teal)' }}>{count}</b></span>
-              <span className="chip" style={{ position: 'absolute', right: 12, bottom: 12 }}>YOLOv12 + BYTETRACK · NO FINE-TUNING</span>
+              <span className="chip" style={{ position: 'absolute', right: 12, bottom: 12 }}>YOLOv12 + BYTETRACK</span>
             </div>
             <div className="mono" style={{ marginTop: 10, fontSize: 11, color: 'var(--faint)' }}>Scroll scrubs the real footage; every box is the detector’s own output.</div>
           </div>

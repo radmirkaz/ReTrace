@@ -168,6 +168,8 @@ function TrackingBar({ v, current, camName, onStep, onStop }: { v: Vehicle; curr
   const steps = v.journey && v.journey.length > 1 ? v.journey : null
   const i = steps ? steps.findIndex((s) => s.cam === current) : -1
   const go = (k: number) => { const s = steps?.[k]; if (s) onStep(s.cam, `${s.cam}:${s.track}`) }
+  const graded = steps ? steps.filter((s) => !s.self && s.correct !== undefined && s.correct !== null).length : 0
+  const right = steps ? steps.filter((s) => s.correct === true).length : 0
   return (
     <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--amber)', background: 'rgba(251,191,36,.06)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
@@ -175,7 +177,7 @@ function TrackingBar({ v, current, camName, onStep, onStop }: { v: Vehicle; curr
         <img src={asset(v.crop)} alt="" style={{ width: 44, height: 33, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--amber)' }} />
         <strong style={{ fontSize: 16 }}>{vehicleTitle(v)}</strong>
         <span className="mono" style={{ fontSize: 11, color: 'var(--dim)' }}>
-          {steps ? `seen on ${steps.length} cameras · step ${i + 1} of ${steps.length} · ✓ ground truth` : 'no confirmed sighting on other cameras'}
+          {steps ? `model found it on ${steps.length} cameras · step ${i + 1} of ${steps.length}${graded ? ` · ${right}/${graded} confirmed by ground truth` : ''}` : 'no match on other cameras'}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           {steps && <button className="btn" disabled={i <= 0} onClick={() => go(i - 1)} style={{ minHeight: 34, padding: '4px 12px', opacity: i <= 0 ? 0.4 : 1 }}>‹ Prev</button>}
@@ -194,6 +196,8 @@ function TrackingBar({ v, current, camName, onStep, onStop }: { v: Vehicle; curr
                   <img src={asset(s.crop)} alt="" style={{ width: 40, height: 30, objectFit: 'cover', borderRadius: 3 }} />
                   <span style={{ fontSize: 13, fontWeight: here ? 700 : 500, whiteSpace: 'nowrap' }}>{camName(s.cam)}</span>
                   {here && <span className="mono" style={{ fontSize: 10 }}>YOU ARE HERE</span>}
+                  {!s.self && s.correct === true && <span title="Confirmed by ground truth" style={{ color: here ? 'var(--amber-ink)' : 'var(--teal)' }}>✓</span>}
+                  {!s.self && s.correct === false && <span title="Wrong match per ground truth" style={{ color: here ? 'var(--amber-ink)' : 'var(--rose)' }}>✗</span>}
                 </button>
                 {k < steps.length - 1 && <span aria-hidden style={{ color: 'var(--amber)' }}>→</span>}
               </li>

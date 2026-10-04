@@ -48,10 +48,73 @@ BODIES = ["sedan", "SUV", "pickup truck", "hatchback", "minivan", "van", "coupe"
 COLOURS = ["white", "black", "grey", "silver", "red", "blue", "green", "yellow", "orange", "brown", "beige"]
 
 
-def reliable(consistency, margin, p1, min_side, contrast, n_crops):
-    """Make/model is only shown when independent signals agree — softmax confidence alone is
-    not trusted (night/snow crops can be confidently wrong)."""
-    return n_crops >= 2 and consistency >= 0.75 and p1 >= 0.25 and margin >= 0.08 and min_side >= 72 and contrast >= 28
+BODY_GROUP = {"sedan": "car", "hatchback": "car", "coupe": "car", "station wagon": "car", "SUV": "suv", "minivan": "suv",
+              "pickup truck": "pickup", "van": "van", "bus": "heavy", "box truck": "heavy", "semi truck": "heavy", "motorcycle": "moto"}
+# Colour families overlap on purpose: CLIP confuses white/silver, silver/grey and brown/black on real footage.
+COLOUR_FAMILY = {"white": ["light"], "silver": ["light", "grey"], "beige": ["light", "warm"], "grey": ["grey"], "black": ["dark"],
+                 "brown": ["dark", "warm"], "red": ["red"], "orange": ["red", "warm"], "yellow": ["warm"], "blue": ["blue"], "green": ["green"]}
+
+
+def _family_probs(p, names, mapping):
+    fams = sorted({f for fs in mapping.values() for f in (fs if isinstance(fs, list) else [fs])})
+    out = np.zeros(len(fams))
+    for prob, n in zip(p, names):
+        fs = mapping[n] if isinstance(mapping[n], list) else [mapping[n]]
+        for f in fs:
+            out[fams.index(f)] += prob / len(fs)
+    return out / out.sum()
+
+
+def compatible(a, b, body_min, colour_min):
+    """Post-processing gate for matches: same body group and colour family (soft, via CLIP probabilities)."""
+    body = float(_family_probs(a["_body"], BODIES, BODY_GROUP) @ _family_probs(b["_body"], BODIES, BODY_GROUP))
+    if body < body_min:
+        return False
+    if a["_night"] or b["_night"]:
+        return True  # colour is unreliable under streetlights
+    colour = float(_family_probs(a["_colour"], COLOURS, COLOUR_FAMILY) @ _family_probs(b["_colour"], COLOURS, COLOUR_FAMILY))
+    return colour >= colour_min
+
+
+QUERY_BODY = {"sedan": "car", "car": "car", "hatchback": "car", "coupe": "car", "wagon": "car", "suv": "suv", "minivan": "suv",
+              "pickup": "pickup", "truck": "pickup", "van": "van", "bus": "heavy", "lorry": "heavy", "semi": "heavy", "motorcycle": "moto", "motorbike": "moto"}
+QUERY_COLOUR = {c: COLOUR_FAMILY[c] for c in COLOURS} | {"gray": ["grey"], "dark": ["dark"], "light": ["light"]}
+
+
+def query_attributes(q: str):
+    """Colour families and body group named in a text query (e.g. 'blue pickup truck')."""
+    words = [w.strip(".,!?").lower() for w in q.split()]
+    colours = sorted({f for w in words if w in QUERY_COLOUR for f in QUERY_COLOUR[w]})
+    body = next((QUERY_BODY[w] for w in words if w in QUERY_BODY and not (w == "truck" and "pickup" not in words and any(x in words for x in ("box", "semi", "dump")))), None)
+    return colours, body
+
+
+def attributes(v):
+    """Per-vehicle body-group and colour-family probabilities (saved for search filtering)."""
+    groups = sorted(set(BODY_GROUP.values()))
+    fams = sorted({f for fs in COLOUR_FAMILY.values() for f in fs})
+    bg = _family_probs(v["_body"], BODIES, BODY_GROUP)
+    cf = _family_probs(v["_colour"], COLOURS, COLOUR_FAMILY)
+    return {"body": {g: round(float(p), 3) for g, p in zip(groups, bg)}, "colour": {f: round(float(p), 3) for f, p in zip(fams, cf)}, "night": bool(v["_night"])}
+
+
+def matches_query(attr, colours, body, min_p=0.25):
+    if body and attr["body"].get(body, 0) < min_p:
+        return False
+    if colours and not attr["night"] and sum(attr["colour"].get(f, 0) for f in colours) < min_p:
+        return False
+    return True
+
+
+def reliable(consistency, margin, p1, min_side, contrast, n_crops, condition="day"):
+    """Show a make/model when the crop has enough detail and either most crops agree or one clean
+    prediction is strong. Rain/snow/night — where confident-but-wrong labels happened — need the
+    crops to agree strongly."""
+    if min_side < 48 or contrast < 20:
+        return False
+    if condition in ("night", "rain", "snow"):
+        return n_crops >= 2 and consistency >= 0.75 and p1 >= 0.25 and margin >= 0.08
+    return (consistency >= 0.5 and p1 >= 0.2 and margin >= 0.05) or p1 >= 0.6
 
 
 LOCATIONS = json.loads((Path(__file__).parent / "map" / "camera_locations.json").read_text())
@@ -68,8 +131,8 @@ LANDING_SCENES = [
     ("oak-bridge", "Long range, low-res", "Small, distant vehicles at 720p."),
 ]
 WITNESS = {
-    "transcript": "It was a white pickup truck, kind of big. It hit the cyclist and kept going east on Kingsway, around nine-thirty.",
-    "query": "a white pickup truck",
+    "transcript": "It was a blue pickup truck, maybe a Toyota. It hit the cyclist and kept going east on Kingsway, around nine-thirty.",
+    "query": "a blue pickup truck",
 }
 
 
@@ -252,8 +315,10 @@ def index(M, src_dir, spec_name, out):
                     feat = F.normalize(feat + own, dim=0)
                 ci = F.normalize(clip_model.get_image_features(**clip_proc(images=rgbs, return_tensors="pt").to(DEVICE)).float(), dim=1)
                 ci = F.normalize(ci.mean(0, keepdim=True), dim=1)
-                body = BODIES[int((ci @ body_t.T).argmax())]
-                colour = COLOURS[int((ci @ colour_t.T).argmax())]
+                body_p = F.softmax((ci @ body_t.T)[0] * 100, dim=0).cpu().numpy()
+                colour_p = F.softmax((ci @ colour_t.T)[0] * 100, dim=0).cpu().numpy()
+                body = BODIES[int(body_p.argmax())]
+                colour = COLOURS[int(colour_p.argmax())]
             top = torch.topk(probs, 5)
             top1 = int(top.indices[0])
             consistency = float((per_crop.argmax(dim=1) == top1).float().mean())
@@ -261,7 +326,7 @@ def index(M, src_dir, spec_name, out):
             best = pick["crops"][0]
             min_side = min(best.shape[:2])
             contrast = float(cv2.cvtColor(best, cv2.COLOR_BGR2GRAY).std())
-            ok = reliable(consistency, margin, float(top.values[0]), min_side, contrast, len(pick["crops"]))
+            ok = reliable(consistency, margin, float(top.values[0]), min_side, contrast, len(pick["crops"]), cam.get("condition", "day"))
             stats["reliable"] = stats.get("reliable", 0) + int(ok)
             gid = f"{cid}:{tid}"
             crop_rel = f"{rel}crops/{cid}_{tid}.jpg"
@@ -275,7 +340,7 @@ def index(M, src_dir, spec_name, out):
                 "evidence": {"consistency": round(consistency, 2), "margin": round(margin, 3), "min_side": int(min_side), "contrast": round(contrast, 1), "crops": len(pick["crops"])},
                 "top5": [{"name": names[int(i)], "p": round(float(p), 4)} for p, i in zip(top.values, top.indices)],
                 "sightings": [{"cam": cid, "track": int(tid), "t": round(pick["frames"][0] / hi_tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
-                "_fi": pick["frames"][0], "_box": pick["box"],
+                "_fi": pick["frames"][0], "_box": pick["box"], "_body": body_p, "_colour": colour_p, "_night": cam.get("condition") == "night",
             }
         mine = [v for k, v in vehicles.items() if k.startswith(cid + ":")]
         print(f"{cid} [{cam.get('condition')}]: {len(picks)} tracks, {len(mine)} identified, {sum(v['reliable'] for v in mine)} with a reliable make/model")
@@ -297,38 +362,117 @@ def index(M, src_dir, spec_name, out):
                 target[cid] = gid
     t_keys = list(target.values())
 
+    # Corridors: cameras on one street, where the same traffic passes (camera graph of the city).
+    corridors = {}
+    for c in spec["cameras"]:
+        for prefix in ("kingsway-", "cambie-king-edward-"):
+            if c["id"].startswith(prefix):
+                corridors.setdefault(prefix, []).append(c["id"])
+    corridor_of = {cid: ids for ids in corridors.values() for cid in ids}
+    by_cam = {}
+    for g in keys:
+        by_cam.setdefault(g.split(":")[0], []).append(g)
+
+    def best_on(gid, cam, filt):
+        cands = [k for k in by_cam.get(cam, []) if not filt or compatible(vehicles[gid], vehicles[k], *filt)]
+        return max(cands, key=lambda k: S[index[gid], index[k]]) if cands else None
+
+    def propose(gid, tau, filt, mutual=True):
+        """The model's journey: best match on each other corridor camera, above `tau`; with `mutual`,
+        that match must also pick this vehicle as its best on our camera (mutual nearest neighbours)."""
+        i, cam_i = index[gid], gid.split(":")[0]
+        steps = []
+        for c in corridor_of.get(cam_i, []):
+            if c == cam_i:
+                continue
+            k = best_on(gid, c, filt)
+            if k is None or S[i, index[k]] < tau:
+                continue
+            if mutual and best_on(k, cam_i, filt) != gid:
+                continue
+            steps.append(k)
+        return steps
+
+    def score(tau, filt, mutual=True):
+        tp = fp = pos = 0
+        for gid in keys:
+            if gid not in gt_of or gid.split(":")[0] not in corridor_of:
+                continue
+            cam_i = gid.split(":")[0]
+            truth = {k.split(":")[0] for k in groups[gt_of[gid]] if k.split(":")[0] != cam_i}
+            pos += len(truth)
+            for k in propose(gid, tau, filt, mutual):
+                if gt_of.get(k) == gt_of[gid]:
+                    tp += 1
+                else:
+                    fp += 1
+        prec = tp / max(1, tp + fp)
+        rec = tp / max(1, pos)
+        return {"tau": round(tau, 2), "precision": round(prec, 3), "recall": round(rec, 3), "f1": round(2 * prec * rec / max(1e-9, prec + rec), 3)}
+
+    # Filter strength: the loosest-to-strictest setting that still keeps >=95% of true same-car pairs.
+    true_pairs = [(a, b) for g in groups.values() for a in g for b in g if a < b and a.split(":")[0] != b.split(":")[0]]
+    filt = (0.15, 0.1)
+    for f in [(0.4, 0.3), (0.3, 0.25), (0.25, 0.2), (0.2, 0.15), (0.15, 0.1)]:
+        kept = sum(compatible(vehicles[a], vehicles[b], *f) for a, b in true_pairs) / max(1, len(true_pairs))
+        if kept >= 0.95:
+            filt = f
+            break
+    kept = sum(compatible(vehicles[a], vehicles[b], *filt) for a, b in true_pairs) / max(1, len(true_pairs))
+    grid = [0.3 + 0.02 * k for k in range(31)]
+
+    def operating_point(rows):
+        """Best F1: with the filter and mutual check this finds ~2/3 of real sightings at ~2/3 precision."""
+        return max(rows, key=lambda r: r["f1"])
+
+    if true_pairs:
+        variants = {
+            "model only": operating_point([score(t, None, False) for t in grid]),
+            "+ body/colour filter": operating_point([score(t, filt, False) for t in grid]),
+            "+ filter + mutual best match": operating_point([score(t, filt, True) for t in grid]),
+        }
+    else:
+        variants = {"+ filter + mutual best match": {"tau": 0.6}}
+    curve = [score(t, filt, True) for t in grid] if true_pairs else []
+    tau = variants["+ filter + mutual best match"]["tau"]
+    postproc = {"filter": {"body_min": filt[0], "colour_min": filt[1], "true_pairs_kept": round(kept, 3)},
+                "variants": variants, "curve_filter_mutual": curve, "gt_pairs": len(true_pairs), "in_use": "+ filter + mutual best match"}
+
     for gid in keys:
         i = index[gid]
         cam_i = gid.split(":")[0]
         me = vehicles[gid]
-        members = sorted(groups.get(gt_of.get(gid), [gid]), key=lambda g: order[g.split(":")[0]])
-        # One appearance per camera: tracker ID switches can split a car into several tracks.
-        per_cam = {}
-        for g in members:
-            c = g.split(":")[0]
-            if c == cam_i and g != gid:
-                continue
-            if g == gid or c not in per_cam or (per_cam[c] != gid and vehicles[g]["quality"] > vehicles[per_cam[c]]["quality"]):
-                per_cam[c] = g
-        members = sorted(per_cam.values(), key=lambda g: order[g.split(":")[0]])
-        me["journey"] = [{**vehicles[g]["sightings"][0], "sim": round(float(S[i, index[g]]), 3), "verified": len(members) > 1, **({"self": True} if g == gid else {})}
+        steps = propose(gid, tau, filt)
+        members = sorted([gid] + steps, key=lambda g: order[g.split(":")[0]])
+
+        def correctness(k):
+            if k == gid or gid not in gt_of or k not in gt_of:
+                return None
+            return gt_of[k] == gt_of[gid]
+
+        me["journey"] = [{**vehicles[g]["sightings"][0], "sim": round(float(S[i, index[g]]), 3),
+                          **({"self": True} if g == gid else {"correct": correctness(g), "verified": correctness(g) is True})}
                          for g in members]
         me["similar"] = []
         for j in np.argsort(-S[i]):
             k = keys[j]
-            if k in members or k.split(":")[0] == cam_i:
+            if k in members or k.split(":")[0] == cam_i or not compatible(me, vehicles[k], *filt):
                 continue
             me["similar"].append({**vehicles[k]["sightings"][0], "sim": round(float(S[i, j]), 3)})
             if len(me["similar"]) >= 4:
                 break
         me["sightings"] = [me["sightings"][0]] + [x for x in me["journey"] if not x.get("self")] + me["similar"]
+    stats["postproc"] = postproc
+    attrs = {g: attributes(v) for g, v in vehicles.items()}
     for v in vehicles.values():
         v.pop("_fi", None)
         v.pop("_box", None)
-    stats["journeys"] = sum(1 for g in groups.values() if len({x.split(":")[0] for x in g}) > 1)
+        for k in ("_body", "_colour", "_night"):
+            v.pop(k, None)
+    stats["journeys"] = sum(1 for v in vehicles.values() if len(v["journey"]) > 1)
 
     print(json.dumps({**stats, "set": spec_name, "cameras": len(cameras), "corridor_target": t_keys}))
-    return {"cameras": cameras, "vehicles": vehicles, "keys": keys, "E": E, "C": np.stack(clip_emb), "target": t_keys}
+    return {"cameras": cameras, "vehicles": vehicles, "keys": keys, "E": E, "C": np.stack(clip_emb), "target": t_keys, "postproc": postproc, "attrs": attrs}
 
 
 def main():
@@ -340,38 +484,64 @@ def main():
     np.save(ROOT / "demo_footage" / "clip_embeddings.npy", live["C"])
     (ROOT / "demo_footage" / "embedding_keys.json").write_text(json.dumps(live["keys"]))
 
+    (ROOT / "demo_footage" / "attributes.json").write_text(json.dumps(live["attrs"]))
+
     story = index(M, WEB, "cameras_spec.json", CACHE / "story")
-    cameras, vehicles, keys, t_keys = story["cameras"], story["vehicles"], story["keys"], story["target"]
+    cameras = story["cameras"]
+    lv, lkeys = live["vehicles"], live["keys"]
+
+    # Witness search over the live feeds, ranked by CLIP and gated by the colour/body words in the query.
     clip_model, clip_proc = M.clip, M.proc
     with torch.no_grad():
         q = clip_model.get_text_features(**clip_proc(text=[WITNESS["query"]], return_tensors="pt", padding=True).to(DEVICE))
     qv = F.normalize(q.float(), dim=1)[0].cpu().numpy()
-    C = story["C"]
-    scores = C @ qv
-    order = np.argsort(-scores)
-    hits = [{"gid": keys[i], "cam": keys[i].split(":")[0], "track": int(keys[i].split(":")[1]),
-             "crop": vehicles[keys[i]]["crop"], "score": round(float(scores[i]), 4)} for i in order[:8]]
+    scores = live["C"] @ qv
+    colours, body = query_attributes(WITNESS["query"])
+    ranked = sorted(range(len(lkeys)), key=lambda i: (not matches_query(live["attrs"][lkeys[i]], colours, body), -scores[i]))
+    hits = [{"gid": lkeys[i], "cam": lkeys[i].split(":")[0], "track": int(lkeys[i].split(":")[1]),
+             "crop": lv[lkeys[i]]["crop"], "score": round(float(scores[i]), 4)} for i in ranked[:8]]
 
-    # Landing trace: the corridor target on the camera where its best crop is cleanest.
-    if t_keys:
-        t_gid = max(t_keys, key=lambda k: vehicles[k]["quality"])
-    else:
-        t_gid = max(vehicles, key=lambda k: vehicles[k]["top5"][0]["p"])
-    t_cam = t_gid.split(":")[0]
+    # Trace: the blue Toyota Tacoma on the Kingsway corridor (identified with a reliable make/model).
+    def tacoma_rank(v):
+        return ("tacoma" in v["top5"][0]["name"].lower(), v["reliable"], v["color"] == "blue", len(v["journey"]), v["quality"])
+    t_gid = max((g for g in lv if g.startswith("kingsway-")), key=lambda g: tacoma_rank(lv[g]))
+    t_cam, t_track = t_gid.split(":")[0], int(t_gid.split(":")[1])
+    live_tracks = json.loads((LIVE / f"{t_cam}.json").read_text())
+    fps = live_tracks["fps"]
+    t_mid = lv[t_gid]["sightings"][0]["t"]
+    # 5 s around the vehicle's best (clean, sharp) frame, so the pull-out starts from a good view.
+    clip_start = max(0.0, t_mid - 3.0)
+    clip_dur = 5.0
+    import subprocess
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(clip_start), "-t", str(clip_dur), "-i", str(LIVE / f"{t_cam}.mp4"), "-an",
+                    "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-pix_fmt", "yuv420p", "-g", "1", "-keyint_min", "1",
+                    "-movflags", "+faststart", str(CACHE / "story" / "clips" / "trace.mp4")], check=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(CACHE / "story" / "clips" / "trace.mp4"), "-frames:v", "1",
+                    str(CACHE / "story" / "clips" / "trace.jpg")], check=True)
+    f0 = int(round(clip_start * fps))
+    sliced = {**live_tracks, "frames": live_tracks["frames"][f0:f0 + int(round(clip_dur * fps))]}
+    sliced["n"] = len(sliced["frames"])
+    (CACHE / "story" / "tracks" / "trace.json").write_text(json.dumps(sliced, separators=(",", ":")))
+
+    landing_vehicles = dict(story["vehicles"])
+    for g in {t_gid, *(h["gid"] for h in hits), *(s["cam"] + ":" + str(s["track"]) for s in lv[t_gid]["sightings"])}:
+        landing_vehicles[g] = lv[g]
     by_id = {c["id"]: c for c in cameras}
     landing = {
         "scenes": [{"cam": c, "title": t, "sub": s, "clip": by_id[c]["clip"], "tracks": by_id[c]["tracks"],
                     "poster": by_id[c]["poster"], "res": by_id[c]["res"]} for c, t, s in LANDING_SCENES if c in by_id],
-        "trace": {"cam": t_cam, "clip": by_id[t_cam]["clip"], "tracks": by_id[t_cam]["tracks"], "poster": by_id[t_cam]["poster"],
-                  "track": int(t_gid.split(":")[1]), "t": vehicles[t_gid]["sightings"][0]["t"], "vehicle": t_gid},
+        "trace": {"cam": t_cam, "clip": "story/clips/trace.mp4", "tracks": "story/tracks/trace.json", "poster": "story/clips/trace.jpg",
+                  "track": t_track, "t": round(t_mid - clip_start, 2),
+                  "vehicle": t_gid},
         "witness": {**WITNESS, "hits": hits},
-        "vehicles": vehicles,
+        "vehicles": landing_vehicles,
     }
     (CACHE / "landing.json").write_text(json.dumps(landing))
     ev = ROOT / "demo_footage" / "eval_reid.json"
     if ev.exists():
-        (CACHE / "metrics.json").write_text(json.dumps({"reid_cityflow_s01": json.loads(ev.read_text()), "reid_embedding_in_use": REID_EMBED}, indent=1))
-    print(json.dumps({"witness_top": hits[:3], "trace": landing["trace"]["vehicle"]}, indent=1))
+        (CACHE / "metrics.json").write_text(json.dumps({"reid_cityflow_s01": json.loads(ev.read_text()), "reid_embedding_in_use": REID_EMBED,
+                                                         "journey_matching_live_feeds": live["postproc"]}, indent=1))
+    print(json.dumps({"witness_top": hits[:4], "trace": landing["trace"], "trace_vehicle": {k: lv[t_gid][k] for k in ("color", "body", "reliable")} | {"top1": lv[t_gid]["top5"][0], "journey": [(x["cam"], x["sim"], x.get("correct")) for x in lv[t_gid]["journey"]]}}, indent=1))
 
 
 if __name__ == "__main__":

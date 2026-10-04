@@ -30,7 +30,7 @@ export interface Camera {
 
 export interface Prediction { name: string; p: number }
 
-export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number; verified?: boolean; self?: boolean }
+export interface Sighting { cam: string; track: number; t: number; crop: string; sim: number; verified?: boolean; self?: boolean; correct?: boolean | null }
 
 export interface Vehicle {
   gid: string
@@ -45,7 +45,7 @@ export interface Vehicle {
   reliable?: boolean
   evidence?: { consistency: number; margin: number; min_side: number; contrast: number; crops: number }
   sightings: Sighting[]
-  /** Ground-truth-confirmed appearances of this same car, in route order (includes itself). */
+  /** The re-ID model's matches on other corridor cameras, in route order (includes itself); `correct` is graded by ground truth. */
   journey?: Sighting[]
   /** Look-alikes on other cameras — not confirmed to be the same car. */
   similar?: Sighting[]
