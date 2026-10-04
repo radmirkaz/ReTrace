@@ -44,22 +44,25 @@ export default function Problem() {
         <div style={card}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Cameras per 10,000 people</div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 4 }}>Dubai: 10,000+ cameras, 4.8M residents, tourists excluded (2026)</div>
-          <Row name="Moscow" value="169" />
+          <Row name="Moscow" value="169" tag="mass surveillance · privacy risk" tagColor="var(--rose)" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {Array.from({ length: 169 }, (_, i) => (
-              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--faint)', opacity: i < dots ? 1 : 0.12 }} />
+              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--rose)', opacity: i < dots ? 0.7 : 0.12 }} />
             ))}
           </div>
-          <Row name="Dubai" value="21+" />
+          <Row name="Dubai" value="21+" tag="road-safety coverage · the balance" tagColor="var(--teal)" color="var(--teal)" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             {Array.from({ length: 21 }, (_, i) => (
-              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--faint)', opacity: i < Math.round(dots * 21 / 169) ? 1 : 0.12 }} />
+              <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--teal)', opacity: i < Math.round(dots * 21 / 169) ? 1 : 0.12 }} />
             ))}
           </div>
-          <Row name="Vancouver" value="3" color="var(--rose)" />
+          <Row name="Vancouver" value="3" color="var(--amber)" tag="too few to help" tagColor="var(--amber)" />
           <div style={{ display: 'flex', gap: 3 }}>
-            {[0, 1, 2].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--rose)' }} />)}
+            {[0, 1, 2].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--amber)' }} />)}
           </div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, margin: '16px 0 0' }}>
+            More cameras is not the goal. ReTrace gets more out of the cameras a city has, and it indexes vehicles, not faces or plates.
+          </p>
         </div>
 
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
@@ -94,10 +97,14 @@ export default function Problem() {
   )
 }
 
-function Row({ name, value, color = '#93a4b8' }: { name: string; value: string; color?: string }) {
+function Row({ name, value, color = '#93a4b8', tag, tagColor }: { name: string; value: string; color?: string; tag?: string; tagColor?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', margin: '16px 0 8px', fontSize: 14 }}>
-      <span>{name}</span><span className="mono" style={{ color }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, margin: '16px 0 8px', fontSize: 14 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {name}
+        {tag && <span className="mono" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, border: `1px solid ${tagColor}`, color: tagColor }}>{tag}</span>}
+      </span>
+      <span className="mono" style={{ color }}>{value}</span>
     </div>
   )
 }
