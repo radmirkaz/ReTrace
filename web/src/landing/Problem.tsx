@@ -60,6 +60,7 @@ export default function Problem() {
           <div style={{ display: 'flex', gap: 3 }}>
             {[0, 1, 2].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--amber)' }} />)}
           </div>
+          <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 6 }}>221 traffic cameras, only 140 of them red-light / speed enforcement</div>
           <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, margin: '16px 0 0' }}>
             More cameras is not the goal. ReTrace gets more out of the cameras a city has, and it indexes vehicles, not faces or plates.
           </p>
