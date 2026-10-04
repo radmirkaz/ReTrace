@@ -7,6 +7,9 @@ relying on licence plates.
 
 Built at StormHacks 2026 (SFU Burnaby, October 3–4).
 
+**Live demo:** https://radmirkaz.github.io/ReTrace/ (live search, voice and photo search run on our GPU server;
+when it is offline the site still works with label-based search).
+
 ## Run it
 
 The website works on any machine with Node 20+; the feed data ships in `web/public/cache`.
