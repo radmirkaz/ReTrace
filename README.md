@@ -39,12 +39,12 @@ cd web && VITE_API_URL=http://<gpu-host>:8000 npm run dev
 Without the backend, search matches the indexed labels, voice uses the browser's speech
 recognition, and photo search is unavailable.
 
-To share the site through a tunnel (one public address for the site and the backend):
+To share the site through a tunnel, serve the built site and the API from the GPU machine on one address:
 
 ```bash
-cd web && VITE_API_URL=/api npm run build
-API_PROXY=http://<gpu-host>:8000 npx vite preview --port 4173
-cloudflared tunnel --url http://localhost:4173
+cd web && VITE_API_URL=/api npm run build && cd ..
+uvicorn backend.serve:app --host 0.0.0.0 --port 8000   # site at /, API at /api
+cloudflared tunnel --url http://localhost:8000
 ```
 
 ## Layout
