@@ -18,6 +18,7 @@ Writes web/public/cache/{cameras,vehicles}.json + clips/, tracks/, crops/ for th
 web/public/cache/story/ + landing.json for the landing page.
 """
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -141,6 +142,7 @@ WITNESS = {
 
 
 def pretty_class(path: str) -> str:
+    path = re.sub(r"(\d{4})tau(\d{4}|present)", r"\1-\2", path)  # dataset spells year ranges as 2007tau2014
     parts = [p for p in path.strip("/").split("/") if p]
     brand = parts[0].replace("_", " ").replace("mercedesbenz", "mercedes-benz").title() if parts else "?"
     model = parts[1].replace("_", " ").title() if len(parts) > 1 else ""
