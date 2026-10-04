@@ -50,6 +50,10 @@ QUERY_COLOUR = {"white": ["light"], "silver": ["light", "grey"], "beige": ["ligh
                 "yellow": ["warm"], "blue": ["blue"], "green": ["green"]}
 
 
+MAKES = {"toyota", "ford", "honda", "chevrolet", "chevy", "dodge", "ram", "gmc", "nissan", "hyundai", "kia", "bmw", "audi", "mercedes",
+         "volkswagen", "subaru", "mazda", "jeep", "tesla", "lexus", "acura", "volvo"}
+
+
 @lru_cache
 def attributes():
     path = INDEX / "attributes.json"
@@ -126,9 +130,15 @@ def search(q: str, k: int = 12):
     colours = sorted({f for w in words for f in QUERY_COLOUR.get(w, [])})
     body = next((QUERY_BODY[w] for w in words if w in QUERY_BODY), None)
     attrs = attributes()
-    # Matching colour/body first (ranked by CLIP), anything else only after them.
-    order = sorted(range(len(keys)), key=lambda i: (not matches(attrs.get(keys[i]), colours, body), -scores[i]))
     v = read("vehicles.json")
+    makes = [w for w in words if w in MAKES]
+
+    def make_hit(gid):
+        x = v.get(gid, {})
+        return bool(makes) and x.get("reliable") and any(m in x["top5"][0]["name"].lower() for m in makes)
+
+    # Matching colour/body first, then a spoken/typed make, then CLIP similarity.
+    order = sorted(range(len(keys)), key=lambda i: (not matches(attrs.get(keys[i]), colours, body), not make_hit(keys[i]), -scores[i]))
     out = []
     for i in order[:k]:
         gid = keys[i]

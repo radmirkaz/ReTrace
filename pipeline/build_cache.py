@@ -81,6 +81,10 @@ QUERY_BODY = {"sedan": "car", "car": "car", "hatchback": "car", "coupe": "car", 
 QUERY_COLOUR = {c: COLOUR_FAMILY[c] for c in COLOURS} | {"gray": ["grey"], "dark": ["dark"], "light": ["light"]}
 
 
+MAKES = {"toyota", "ford", "honda", "chevrolet", "chevy", "dodge", "ram", "gmc", "nissan", "hyundai", "kia", "bmw", "audi", "mercedes",
+         "volkswagen", "subaru", "mazda", "jeep", "tesla", "lexus", "acura", "volvo"}
+
+
 def query_attributes(q: str):
     """Colour families and body group named in a text query (e.g. 'blue pickup truck')."""
     words = [w.strip(".,!?").lower() for w in q.split()]
@@ -497,7 +501,12 @@ def main():
     qv = F.normalize(q.float(), dim=1)[0].cpu().numpy()
     scores = live["C"] @ qv
     colours, body = query_attributes(WITNESS["query"])
-    ranked = sorted(range(len(lkeys)), key=lambda i: (not matches_query(live["attrs"][lkeys[i]], colours, body), -scores[i]))
+    # A make the witness mentions ("maybe a Toyota") lifts vehicles whose reliable make/model agrees.
+    makes = [w for w in (x.strip(".,!?").lower() for x in WITNESS["transcript"].split()) if w in MAKES]
+    def make_hit(g):
+        v = lv[g]
+        return bool(makes) and v["reliable"] and any(m in v["top5"][0]["name"].lower() for m in makes)
+    ranked = sorted(range(len(lkeys)), key=lambda i: (not matches_query(live["attrs"][lkeys[i]], colours, body), not make_hit(lkeys[i]), -scores[i]))
     hits = [{"gid": lkeys[i], "cam": lkeys[i].split(":")[0], "track": int(lkeys[i].split(":")[1]),
              "crop": lv[lkeys[i]]["crop"], "score": round(float(scores[i]), 4)} for i in ranked[:8]]
 
