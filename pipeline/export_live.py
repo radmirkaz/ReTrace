@@ -3,7 +3,7 @@
 Each window is picked automatically (vehicle count, vehicle size, detector confidence),
 then cut at <=1920 px for tracking/crops and 960 px for playback, and looped on the map.
 
-Run on the GPU PC from the repository root (canai env):
+Run on a CUDA machine from the repository root:
     python pipeline/export_live.py
 Writes demo_footage/live/<camera>.{mp4,json,jpg}, <camera>_hi.{mp4,json} and live_spec.json.
 """
@@ -17,11 +17,11 @@ import supervision as sv
 from ultralytics import YOLO
 
 from make_web_clips import WEIGHTS
+from paths import SOURCE_VIDEOS
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "demo_footage"
 OUT = DATA / "live"
-CANAI_VIDEOS = Path(r"C:\Users\Radmir\Desktop\canai25\yolo\videos")
 AAU = DATA / "AAU_RainSnow" / "aaurainsnow"
 RHD = DATA / "RoundaboutHD" / "RoundaboutHD"
 CF = DATA / "CityFlowV2"
@@ -41,8 +41,8 @@ FEEDS = [
     ("georgia-denman", "Georgia St & Denman St", 49.2925, -123.1350, AAU / "Hobrovej" / "Hobrovej-1" / "cam1.mkv", "pole", "night", "AAU RainSnow · Hobrovej-1 (Denmark)", None),
     ("hastings-commercial", "Hastings St & Commercial Dr", 49.2810, -123.0700, AAU / "Hjorringvej" / "Hjorringvej-3" / "cam1.mkv", "pole", "night", "AAU RainSnow · Hjorringvej-3 (Denmark)", None),
     ("marine-main", "SE Marine Dr & Main St", 49.2110, -123.1010, AAU / "Egensevej" / "Egensevej-4" / "cam1.mkv", "pole", "snow", "AAU RainSnow · Egensevej-4 (Denmark)", None),
-    ("hwy1-boundary", "Hwy 1 at Boundary Rd", 49.2590, -123.0235, CANAI_VIDEOS / "test2_4k.mp4", "overpass", "day", "Highway overpass (4K)", None),
-    ("knight-bridge", "Knight St Bridge", 49.2050, -123.0770, CANAI_VIDEOS / "traffic_3rd.mp4", "overpass", "dusk", "Motorway at dusk (1440p)", 0.0),
+    ("hwy1-boundary", "Hwy 1 at Boundary Rd", 49.2590, -123.0235, SOURCE_VIDEOS / "test2_4k.mp4", "overpass", "day", "Highway overpass (4K)", None),
+    ("knight-bridge", "Knight St Bridge", 49.2050, -123.0770, SOURCE_VIDEOS / "traffic_3rd.mp4", "overpass", "dusk", "Motorway at dusk (1440p)", 0.0),
 ]
 KINGSWAY = [("kingsway-fraser", "Kingsway & Fraser St", 49.2496, -123.0890),
             ("kingsway-knight", "Kingsway & Knight St", 49.2445, -123.0770),

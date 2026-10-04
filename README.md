@@ -20,34 +20,57 @@ npm run dev        # http://localhost:5173
 - `#/` is the story: the problem, detection on real footage in any condition, a witness's
   voice statement turned into a search, and one car traced across cameras.
 - `#/live` is the city map: click any camera to watch its feed with tracks, inspect a
-  vehicle, follow it to other cameras, or search by text or voice.
+  vehicle, follow it to other cameras, or search by text, voice, or a photo or clip of a car
+  (button next to the mic, or drag a file onto the map).
 - Press `~` (or **Under the hood**) for models, datasets and metrics.
 
 ### GPU backend (optional)
 
-Text search with CLIP and voice transcription with Whisper run on a CUDA machine:
+Text search with CLIP, voice transcription with Whisper, and photo/video search with the detector and
+embeddings model run on a CUDA machine:
 
 ```bash
-pip install fastapi uvicorn torch transformers openai-whisper
+git lfs pull   # model weights in training/
+pip install fastapi uvicorn python-multipart torch torchvision transformers openai-whisper ultralytics supervision opencv-python pillow
 uvicorn backend.app:app --host 0.0.0.0 --port 8000
 cd web && VITE_API_URL=http://<gpu-host>:8000 npm run dev
 ```
 
-Without the backend, search matches the indexed labels and voice uses the browser's
-speech recognition.
+Without the backend, search matches the indexed labels, voice uses the browser's speech
+recognition, and photo search is unavailable.
+
+To share the site through a tunnel (one public address for the site and the backend):
+
+```bash
+cd web && VITE_API_URL=/api npm run build
+API_PROXY=http://<gpu-host>:8000 npx vite preview --port 4173
+cloudflared tunnel --url http://localhost:4173
+```
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
 | `web/` | Website (React + Vite) |
-| `backend/` | API: feeds, vehicles, CLIP search, Whisper transcription |
+| `backend/` | API: feeds, vehicles, CLIP search, Whisper transcription, photo/video search |
 | `pipeline/` | Footage selection, clip export, tracking, crop selection, indexing, map build |
+| `training/` | Model training code, logs and weights: detector, classifier, embeddings model ([how to retrain](training/README.md)) |
 | `demo_footage/` | Source datasets and intermediate exports (not committed) |
 
 ## Pipeline
 
-Run on the GPU machine from the repository root:
+Run on the GPU machine from the repository root. The pipeline loads its models from `training/`
+(`git lfs pull` first) and reads raw videos from `demo_footage/sources/`.
+
+| Model | Weights | Role |
+| --- | --- | --- |
+| Detector | `training/yolo/runs/detect/train1/weights/best.pt` | YOLOv12n, one `car` class, tracked with ByteTrack |
+| Classifier | `training/reid/models/classifier.pt` | Make, model and generation (9,630 classes) |
+| Embeddings model | `training/reid/models/embeddings_model.pt` | 2048-D appearance embedding for re-identification |
+
+The classifier and the embeddings model share the same architecture and training code; the embeddings model uses
+less data, focused on US and Canadian cars, with parameters tuned for embedding quality.
+
 
 | Step | Script | Output |
 | --- | --- | --- |

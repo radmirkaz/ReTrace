@@ -16,11 +16,10 @@ from PIL import Image
 from ultralytics import YOLO
 
 from make_web_clips import WEIGHTS
+from paths import CLASSIFIER_WEIGHTS
 
 ROOT = Path(__file__).resolve().parents[1]
-CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")
 LIVE = ROOT / "demo_footage" / "live"
-sys.path.append(str(CANAI / "submission" / "reid"))
 import src.models.classifier  # noqa: E402
 
 
@@ -52,7 +51,7 @@ def main():
         res[f"detect_track_fps_{name}"] = round(len(fr) / (time.perf_counter() - t), 1)
 
     reid = src.models.classifier.EffNetv2(class_num=9630, features_dim=2048, model_name="m", mix_prec=True)
-    ck = torch.load(CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt", map_location=dev)
+    ck = torch.load(CLASSIFIER_WEIGHTS, map_location=dev)
     reid.load_state_dict(ck.get("model_state_dict", ck))
     reid.to(dev).eval()
     x = torch.randn(32, 3, 300, 300, device=dev)

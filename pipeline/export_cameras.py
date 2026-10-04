@@ -1,6 +1,6 @@
 """Export every demo camera for the live map: pick a good window, cut a scrub-ready clip, track it.
 
-Run on the GPU PC from the repository root (canai env):
+Run on a CUDA machine from the repository root:
     python pipeline/export_cameras.py
 Writes demo_footage/web/<camera>.{mp4,json,jpg} and demo_footage/web/cameras_spec.json,
 which pipeline/build_cache.py turns into the website cache.
@@ -15,12 +15,12 @@ import numpy as np
 from ultralytics import YOLO
 
 from make_web_clips import WEIGHTS, cut, track
+from paths import SOURCE_VIDEOS
 from scan_candidates import scan, score_windows
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "demo_footage"
 OUT = DATA / "web"
-CANAI_VIDEOS = Path(r"C:\Users\Radmir\Desktop\canai25\yolo\videos")
 AAU = DATA / "AAU_RainSnow" / "aaurainsnow"
 CITYFLOW = DATA / "CityFlowV2" / "train" / "S01"
 
@@ -32,10 +32,10 @@ KINGSWAY = [("kingsway-fraser", "Kingsway & Fraser St", 49.2496, -123.0890),
             ("kingsway-joyce", "Kingsway & Joyce St", 49.2295, -123.0390)]
 
 FIXED = [  # id, name, lat, lon, source video, start s, duration s, view, condition, source label
-    ("hwy1-boundary", "Hwy 1 at Boundary Rd", 49.2590, -123.0235, CANAI_VIDEOS / "vehicles.mp4", 2.0, 3.0, "overpass", "day", "Highway overpass clip (EU)"),
-    ("main-broadway", "Main St & Broadway", 49.2627, -123.1007, CANAI_VIDEOS / "sherbrooke_video.mp4", 20.0, 3.0, "pole", "day", "Urban Tracker · Sherbrooke, QC"),
-    ("knight-bridge", "Knight St Bridge", 49.2050, -123.0770, CANAI_VIDEOS / "traffic_3rd.mp4", 5.0, 3.0, "overpass", "dusk", "Motorway at dusk (UK)"),
-    ("oak-bridge", "Oak St Bridge", 49.2040, -123.1270, CANAI_VIDEOS / "traffic_35min.mp4", 60.0, 3.0, "overpass", "day", "Motorway, 720p (UK)"),
+    ("hwy1-boundary", "Hwy 1 at Boundary Rd", 49.2590, -123.0235, SOURCE_VIDEOS / "vehicles.mp4", 2.0, 3.0, "overpass", "day", "Highway overpass clip (EU)"),
+    ("main-broadway", "Main St & Broadway", 49.2627, -123.1007, SOURCE_VIDEOS / "sherbrooke_video.mp4", 20.0, 3.0, "pole", "day", "Urban Tracker · Sherbrooke, QC"),
+    ("knight-bridge", "Knight St Bridge", 49.2050, -123.0770, SOURCE_VIDEOS / "traffic_3rd.mp4", 5.0, 3.0, "overpass", "dusk", "Motorway at dusk (UK)"),
+    ("oak-bridge", "Oak St Bridge", 49.2040, -123.1270, SOURCE_VIDEOS / "traffic_35min.mp4", 60.0, 3.0, "overpass", "day", "Motorway, 720p (UK)"),
 ]
 
 WEATHER = [  # id, name, lat, lon, AAU sequence, view, condition

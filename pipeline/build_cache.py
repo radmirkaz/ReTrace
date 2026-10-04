@@ -12,7 +12,7 @@ For every camera this:
     is additionally matched to ground truth so the landing page's trace is verified,
   * ranks crops with CLIP for the landing page's witness statement.
 
-Run on the GPU PC from the repository root (canai env):
+Run on a CUDA machine from the repository root:
     python pipeline/build_cache.py
 Writes web/public/cache/{cameras,vehicles}.json + clips/, tracks/, crops/ for the map and
 web/public/cache/story/ + landing.json for the landing page.
@@ -31,21 +31,20 @@ import torchvision.transforms as T
 from PIL import Image
 
 from crops import select_crops
+from paths import CLASS_META, CLASSIFIER_WEIGHTS, EMBEDDINGS_WEIGHTS
 
 ROOT = Path(__file__).resolve().parents[1]
-CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")  # baseline project: re-ID weights and class metadata, read-only
 WEB = ROOT / "demo_footage" / "web"
 LIVE = ROOT / "demo_footage" / "live"
 CACHE = ROOT / "web" / "public" / "cache"
-REID_WEIGHTS = CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt"  # make/model names (9,630 classes)
-REID_EMBED_WEIGHTS = CANAI / "submission" / "reid" / "pretrain" / "v24.pt.sd"  # image-to-image re-ID (5,445-class head unused)
-# "v24" = re-ID embedding from v24 only; "ensemble" = mean of v24 and ep6_v8 embeddings
-# (pipeline/eval_reid.py on CityFlowV2: v24 mAP 67.4%, ensemble 73.3%).
-REID_EMBED = "v24"
+REID_WEIGHTS = CLASSIFIER_WEIGHTS
+REID_EMBED_WEIGHTS = EMBEDDINGS_WEIGHTS
+# "embeddings" = re-ID from the embeddings model only; "ensemble" = mean of the embeddings model and the
+# classifier embeddings (pipeline/eval_reid.py on CityFlowV2: embeddings model mAP 67.4%, ensemble 73.3%).
+REID_EMBED = "embeddings"
 # Classes the classifier over-predicts as a fallback on weak crops (Acura MDX was top-1 for ~24% of
 # vehicles). They are removed outright; other over-predicted classes are damped by debiasing below.
 BANNED_CLASSES = ("/acura/mdx/",)
-CLASS_META = CANAI / "submission" / "notebooks" / "llm_data_9630_classes.json"
 CLIP_MODEL = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BODIES = ["sedan", "SUV", "pickup truck", "hatchback", "minivan", "van", "coupe", "station wagon", "bus", "box truck", "semi truck", "motorcycle"]
@@ -127,8 +126,7 @@ def reliable(consistency, margin, p1, min_side, contrast, n_crops, condition="da
 
 LOCATIONS = json.loads((Path(__file__).parent / "map" / "camera_locations.json").read_text())
 
-sys.path.append(str(CANAI / "submission" / "reid"))
-import src.models.classifier  # noqa: E402  (baseline model definition)
+import src.models.classifier  # noqa: E402  (training/reid/src, on sys.path via paths.py)
 
 LANDING_SCENES = [
     ("hwy1-boundary", "Overpass", "Looking down the lanes from ~8 m."),
@@ -423,8 +421,8 @@ def index(M, src_dir, spec_name, out):
                 per_crop = F.softmax(logits.float(), dim=1) * priors
                 per_crop = per_crop / per_crop.sum(dim=1, keepdim=True)
                 probs = per_crop.mean(0)
-                _, v24_feats = M.embedder(batch)
-                feat = F.normalize(F.normalize(v24_feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
+                _, emb_feats = M.embedder(batch)
+                feat = F.normalize(F.normalize(emb_feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
                 if REID_EMBED == "ensemble":
                     own = F.normalize(F.normalize(feats.float(), dim=1).mean(0, keepdim=True), dim=1)[0]
                     feat = F.normalize(feat + own, dim=0)

@@ -1,6 +1,6 @@
 """Shortlist the best 3-second windows in every demo video for the ReTrace website.
 
-Run on the home PC in the `canai` env from C:\\Users\\Radmir\\Desktop\\stormhacks:
+Run on a CUDA machine from the repository root:
     python pipeline\\scan_candidates.py
 Writes demo_footage\\candidates\\: one contact-sheet JPG per candidate window
 (3 frames with detections drawn), sheet_<video>.jpg overviews, and candidates.json.
@@ -12,12 +12,12 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-ROOT = Path(r"C:\Users\Radmir\Desktop\stormhacks")
-CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")  # baseline project: source videos and detector weights, read-only
+from paths import DETECTOR_WEIGHTS, ROOT, SOURCE_VIDEOS
+
 OUT = ROOT / "demo_footage" / "candidates"
-WEIGHTS = CANAI / "submission" / "streamlit" / "yolo" / "best_v10.pt"
-SOURCES = [CANAI / "yolo" / "videos", ROOT / "demo_footage"]
-SKIP = ("processed", "_logs", "candidates", "web")
+WEIGHTS = DETECTOR_WEIGHTS
+SOURCES = [SOURCE_VIDEOS, ROOT / "demo_footage"]
+SKIP = ("processed", "_logs", "candidates", "web", "sources")
 SAMPLE_FPS = 2
 WINDOW_S = 3
 TOP_PER_VIDEO = 4

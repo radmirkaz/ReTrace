@@ -3,7 +3,7 @@
 The window is chosen from RoundaboutHD's multi-camera ground truth to contain the most
 vehicles seen by two or more cameras, so the same car can be followed between feeds.
 
-Run on the GPU PC from the repository root (canai env), after export_live.py:
+Run on a CUDA machine from the repository root, after export_live.py:
     python pipeline/export_cambie_sync.py
 """
 import json

@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# datasets (download from Kaggle, see README)
+yolo/data/
+yolo/train/
+yolo/valid/
+yolo/videos/
+yolo/output/
+reid/datasets/data/images/
+reid/datasets/stanford/
+reid/Google-Image-Scraper/photos/
+reid/Google-Image-Scraper/webdriver/

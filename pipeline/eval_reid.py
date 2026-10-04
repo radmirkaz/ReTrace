@@ -4,7 +4,7 @@ Uses the Kingsway feeds (CityFlowV2 S01, exported by export_live.py): every trac
 is matched to its CityFlow ground-truth ID, cropped with the same quality selection as the
 website, embedded by each checkpoint, then queried against the other cameras.
 
-Run on the GPU PC from the repository root (canai env):
+Run on a CUDA machine from the repository root:
     python pipeline/eval_reid.py
 Prints rank-1 / rank-5 / mAP per checkpoint and writes demo_footage/eval_reid.json.
 """
@@ -20,18 +20,17 @@ import torchvision.transforms as T
 from PIL import Image
 
 from crops import select_crops
+from paths import CLASSIFIER_WEIGHTS, EMBEDDINGS_WEIGHTS
 
 ROOT = Path(__file__).resolve().parents[1]
-CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")
 LIVE = ROOT / "demo_footage" / "live"
 S01 = ROOT / "demo_footage" / "CityFlowV2" / "train" / "S01"
 CHECKPOINTS = {
-    "ep6_v8 (9,630 classes)": (CANAI / "submission" / "reid" / "checkpoints" / "ep6_v8.pt", 9630),
-    "v24 (5,445 classes)": (CANAI / "submission" / "reid" / "pretrain" / "v24.pt.sd", 5445),
+    "classifier (9,630 classes)": (CLASSIFIER_WEIGHTS, 9630),
+    "embeddings model (5,445 classes)": (EMBEDDINGS_WEIGHTS, 5445),
 }
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-sys.path.append(str(CANAI / "submission" / "reid"))
 import src.models.classifier  # noqa: E402
 
 

@@ -1,7 +1,7 @@
 """Cut short demo clips, track vehicles with the ReTrace detector, and export
 scroll-scrubbable MP4s plus per-frame box JSON for the website.
 
-Run on the home PC in the `canai` env from C:\\Users\\Radmir\\Desktop\\stormhacks:
+Run on a CUDA machine from the repository root:
     python pipeline\\make_web_clips.py
 Outputs go to demo_footage\\web\\: <name>.mp4 (every frame a keyframe, 960 px wide),
 <name>.json (per-frame tracks) and <name>.jpg (poster frame).
@@ -14,19 +14,19 @@ import cv2
 import supervision as sv
 from ultralytics import YOLO
 
-ROOT = Path(r"C:\Users\Radmir\Desktop\stormhacks")
-CANAI = Path(r"C:\Users\Radmir\Desktop\canai25")  # baseline project: source videos and detector weights, read-only
+from paths import DETECTOR_WEIGHTS, ROOT, SOURCE_VIDEOS
+
 OUT = ROOT / "demo_footage" / "web"
-WEIGHTS = CANAI / "submission" / "streamlit" / "yolo" / "best_v10.pt"
+WEIGHTS = DETECTOR_WEIGHTS
 WIDTH = 960
 CONF = 0.25
 
 # name, source video, start second, duration seconds
 CLIPS = [
-    ("overpass", CANAI / "yolo" / "videos" / "vehicles.mp4", 2.0, 3.0),
-    ("pole", CANAI / "yolo" / "videos" / "sherbrooke_video.mp4", 20.0, 3.0),
-    ("dusk", CANAI / "yolo" / "videos" / "traffic_3rd.mp4", 5.0, 3.0),
-    ("longrange", CANAI / "yolo" / "videos" / "traffic_35min.mp4", 60.0, 3.0),
+    ("overpass", SOURCE_VIDEOS / "vehicles.mp4", 2.0, 3.0),
+    ("pole", SOURCE_VIDEOS / "sherbrooke_video.mp4", 20.0, 3.0),
+    ("dusk", SOURCE_VIDEOS / "traffic_3rd.mp4", 5.0, 3.0),
+    ("longrange", SOURCE_VIDEOS / "traffic_35min.mp4", 60.0, 3.0),
 ]
 
 
