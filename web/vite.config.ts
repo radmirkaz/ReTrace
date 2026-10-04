@@ -8,6 +8,7 @@ const proxy = target ? { '/api': { target, changeOrigin: true, rewrite: (p: stri
 const allowedHosts = target ? true : undefined
 
 export default defineConfig({
+  base: process.env.BASE_PATH ?? '/', // e.g. /ReTrace/ for GitHub Pages
   plugins: [react()],
   server: { host: true, port: 5173, proxy, allowedHosts },
   preview: { host: true, port: 4173, proxy, allowedHosts },

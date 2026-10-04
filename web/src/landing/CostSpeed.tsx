@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { pub } from '../data'
 
 interface Bench { gpu: string; detect_track_fps_1080p: number; reid_crops_per_s: number; match_ms_vs_1M_vehicles: number }
 
@@ -12,7 +13,7 @@ export default function CostSpeed() {
   const [b, setB] = useState<Bench | null>(null)
   const [cams, setCams] = useState(221)
   const [fps, setFps] = useState(10)
-  useEffect(() => { fetch('/cache/benchmark.json').then((r) => (r.ok ? r.json() : null)).then(setB).catch(() => {}) }, [])
+  useEffect(() => { fetch(pub('cache/benchmark.json')).then((r) => (r.ok ? r.json() : null)).then(setB).catch(() => {}) }, [])
 
   const gpuFps = b?.detect_track_fps_1080p ?? 68
   const perGpu = Math.max(1, Math.floor(gpuFps / fps))

@@ -1,3 +1,4 @@
+import { pub } from '../data'
 import { useRevealProgress, useTicker, ease } from '../hooks'
 
 const PLATES = [
@@ -92,7 +93,7 @@ export default function Problem() {
         <div style={{ ...card, flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div className="label" style={{ color: 'var(--dim)', fontSize: 11 }}>Feeds aren’t kept</div>
           <div style={{ position: 'relative', flex: 1, minHeight: 180, margin: '16px 0 12px', borderRadius: 6, overflow: 'hidden', background: '#111b28' }}>
-            <img src="/cache/story/clips/hwy1-boundary.jpg" alt="Traffic camera still" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1)', opacity: 0.6 }} />
+            <img src={pub('cache/story/clips/hwy1-boundary.jpg')} alt="Traffic camera still" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1)', opacity: 0.6 }} />
             <span className="chip" style={{ position: 'absolute', left: 8, top: 8 }}>STILL · DELAYED</span>
             <span className="chip blink" style={{ position: 'absolute', right: 8, top: 8, border: '1px solid var(--rose)', color: 'var(--rose)' }}>NOT RECORDED</span>
           </div>

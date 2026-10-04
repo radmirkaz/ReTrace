@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { pub } from '../data'
 
 interface Variant { tau?: number; precision?: number; recall?: number; f1?: number }
 interface ReidScore { rank1: number; rank5: number; mAP: number; queries: number }
@@ -20,8 +21,8 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
 
   useEffect(() => {
     if (!open) return
-    fetch('/cache/metrics.json').then((r) => (r.ok ? r.json() : null)).then(setMetrics).catch(() => {})
-    fetch('/cache/detector_training.json').then((r) => (r.ok ? r.json() : null)).then(setCurves).catch(() => {})
+    fetch(pub('cache/metrics.json')).then((r) => (r.ok ? r.json() : null)).then(setMetrics).catch(() => {})
+    fetch(pub('cache/detector_training.json')).then((r) => (r.ok ? r.json() : null)).then(setCurves).catch(() => {})
   }, [open])
 
   // Track the visible slide and support keyboard navigation.
@@ -123,7 +124,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
 
             <section data-i={4} style={{ minHeight: '100vh', scrollSnapAlign: 'start', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '80px 28px 48px', background: 'radial-gradient(ellipse at 50% 45%, rgba(167,139,250,.10), transparent 60%)' }}>
               <motion.div initial={{ opacity: 0, y: 34 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ root: deck, amount: 0.4 }} transition={{ duration: 0.6, ease: 'easeOut' }}>
-                <img src="/team/radmir.jpg" alt="Radmir Zosimov" style={{ display: 'block', margin: '0 auto', width: 'clamp(160px, 22vw, 240px)', aspectRatio: '1', objectFit: 'cover', borderRadius: '50%', border: '3px solid var(--violet)', boxShadow: '0 0 0 10px rgba(167,139,250,.10), 0 20px 60px rgba(0,0,0,.5)' }} />
+                <img src={pub('team/radmir.jpg')} alt="Radmir Zosimov" style={{ display: 'block', margin: '0 auto', width: 'clamp(160px, 22vw, 240px)', aspectRatio: '1', objectFit: 'cover', borderRadius: '50%', border: '3px solid var(--violet)', boxShadow: '0 0 0 10px rgba(167,139,250,.10), 0 20px 60px rgba(0,0,0,.5)' }} />
                 <h2 style={{ fontSize: 'clamp(56px, 9vw, 112px)', lineHeight: 1, letterSpacing: -3, margin: '36px 0 14px' }}>
                   Thank you<span style={{ color: 'var(--violet)' }}>!</span>
                 </h2>

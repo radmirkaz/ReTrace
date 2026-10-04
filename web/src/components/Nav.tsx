@@ -1,3 +1,5 @@
+import { pub } from '../data'
+
 interface Props {
   page: 'landing' | 'live'
   nerd: boolean
@@ -14,7 +16,7 @@ export default function Nav({ page, nerd, onNerd }: Props) {
       }}
     >
       <a href="#/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'var(--text)' }}>
-        <img src="/mark.svg" alt="" width={40} height={32} />
+        <img src={pub('mark.svg')} alt="" width={40} height={32} />
         <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5 }}>
           <span style={{ color: 'var(--teal)' }}>Re</span>Trace
         </span>

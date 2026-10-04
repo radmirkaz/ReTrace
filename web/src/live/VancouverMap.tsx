@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Camera } from '../data'
+import { pub } from '../data'
 
 // City of Vancouver bounding box (lon/lat).
 const B = { w: -123.235, e: -123.015, s: 49.195, n: 49.318 }
@@ -54,7 +55,7 @@ function useViewBox(target: VB): VB {
 export default function VancouverMap({ cameras, selected, highlight = [], focus = [], onSelect }: Props) {
   const [map, setMap] = useState<MapData | null>(null)
   const [hover, setHover] = useState<string>()
-  useEffect(() => { fetch('/map/vancouver.json').then((r) => (r.ok ? r.json() : null)).then(setMap).catch(() => setMap(null)) }, [])
+  useEffect(() => { fetch(pub('map/vancouver.json')).then((r) => (r.ok ? r.json() : null)).then(setMap).catch(() => setMap(null)) }, [])
 
   const layers = useMemo(() => (map ? { water: path(map.water, true), parks: path(map.parks ?? [], true), major: path(map.major), minor: path(map.minor), coast: path(map.coast ?? []) } : null), [map])
   const trail = highlight.map((id) => cameras.find((c) => c.id === id)).filter(Boolean) as Camera[]

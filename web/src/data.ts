@@ -54,7 +54,11 @@ export interface Vehicle {
 export interface SearchHit { gid: string; cam: string; track: number; crop: string; score: number }
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '')
-const CACHE = '/cache'
+// Lets API calls through ngrok's free-plan browser warning page when the backend is shared that way.
+const API_HEADERS = { 'ngrok-skip-browser-warning': '1' }
+/** A file in web/public, under the base path the site is deployed at (e.g. /ReTrace/ on GitHub Pages). */
+export const pub = (p: string) => import.meta.env.BASE_URL + p.replace(/^\//, '')
+const CACHE = pub('cache')
 
 export type Mode = 'live' | 'cached'
 
@@ -79,7 +83,7 @@ export const loadLanding = () => getJson<LandingData>('/landing', '/landing.json
 export async function searchText(q: string): Promise<SearchHit[]> {
   if (mode === 'live' && API) {
     try {
-      const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(6000) })
+      const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, { headers: API_HEADERS, signal: AbortSignal.timeout(6000) })
       if (r.ok) return r.json()
     } catch {
       mode = 'cached' // backend unreachable: keep the demo running on label matching
@@ -104,7 +108,7 @@ export async function transcribe(audio: Blob): Promise<string> {
   if (!API) throw new Error('Voice search needs the live backend')
   const body = new FormData()
   body.append('audio', audio, 'query.webm')
-  const r = await fetch(`${API}/transcribe`, { method: 'POST', body })
+  const r = await fetch(`${API}/transcribe`, { method: 'POST', body, headers: API_HEADERS })
   if (!r.ok) throw new Error('transcription failed')
   return ((await r.json()) as { text: string }).text
 }
@@ -126,7 +130,7 @@ export async function searchPhoto(file: File): Promise<{ query: PhotoQuery; resu
   if (!API) throw new Error('Photo search needs the live backend')
   const body = new FormData()
   body.append('file', file, file.name)
-  const r = await fetch(`${API}/search/photo`, { method: 'POST', body, signal: AbortSignal.timeout(120000) })
+  const r = await fetch(`${API}/search/photo`, { method: 'POST', body, headers: API_HEADERS, signal: AbortSignal.timeout(120000) })
   if (!r.ok) throw new Error(((await r.json().catch(() => null)) as { detail?: string } | null)?.detail ?? 'Photo search failed')
   return r.json()
 }
