@@ -144,12 +144,31 @@ WITNESS = {
 }
 
 
+# Dataset noise in generation names: market tags, placeholders, and year ranges spelled as
+# 2007tau2014 / 1981tntau1989 / 20172021 / 2020present.
+# Dataset noise in generation names: market tags, placeholders, and year ranges spelled as
+# 2007tau2014 / 1981tntau1989 / 20172021 / 2020present.
+NOISE = re.compile(r"\b(for )?[a-z]{0,4}market\b|\b(ru|jp|eu|cn|cis|na)\b|\bgeneral model dont set\b|\bdont set\b|\bgeneral\b")
+
+
+def clean_generation(g: str) -> str:
+    g = re.sub(r"[_()/]", " ", g).replace("tntau", "tau").replace("taupr", "taupresent")
+    g = re.sub(r"\btau(\d{4})\b[^a-z]*for [a-z]*market", "", g)  # "(tau2006 for eumarket)" notes
+    g = re.sub(r"\b\d{4} for [a-z]*market", "", g)  # "(2021 for inmarket)" notes
+    g = re.sub(r"(\d{4})tau(\d{4}|present)", r"\1-\2", g)
+    g = re.sub(r"(\d{4})tau\b", r"\1-present", g)
+    g = re.sub(r"(?<!\d)(\d{4})(\d{4})(?!\d)", lambda m: f"{m[1]}-{m[2]}" if 1900 <= int(m[1]) <= int(m[2]) <= 2030 else m[0], g)
+    g = re.sub(r"(\d{4})present", r"\1-present", g)
+    g = NOISE.sub(" ", g)
+    g = re.sub(r"(\w)tau(\w)", r"\1-\2", g).replace(" tau ", " - ")
+    return re.sub(r"\s+", " ", g).strip(" -")
+
+
 def pretty_class(path: str) -> str:
-    path = re.sub(r"(\d{4})tau(\d{4}|present)", r"\1-\2", path)  # dataset spells year ranges as 2007tau2014
     parts = [p for p in path.strip("/").split("/") if p]
     brand = parts[0].replace("_", " ").replace("mercedesbenz", "mercedes-benz").title() if parts else "?"
     model = parts[1].replace("_", " ").title() if len(parts) > 1 else ""
-    gen = parts[2].replace("_", " ") if len(parts) > 2 and parts[2] not in ("1",) else ""
+    gen = clean_generation(parts[2]) if len(parts) > 2 and parts[2] not in ("1",) else ""
     return " ".join(x for x in (brand, model, f"({gen})" if gen else "") if x)
 
 

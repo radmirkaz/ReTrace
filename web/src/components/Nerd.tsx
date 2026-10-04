@@ -64,21 +64,21 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
                 { colour: 'var(--violet)', steps: ['Voice', 'Whisper', 'Colour / body / make', 'CLIP text', 'Rank + gate crops'] },
                 { colour: 'var(--amber)', steps: ['Selected car', 'Re-ID fingerprint', 'Body & colour gate', 'Mutual best match', 'Journey across cameras'] },
               ]} />
-              <Stats items={[['9,630', 'make / model / generation classes'], ['400k+', 'training images'], ['18', 'camera feeds on the map'], ['~60 fps', 'detector on an RTX 3090, 4K']]} />
+              <Stats items={[['9,630', 'make / model / generation classes'], ['400k+', 'training images'], ['18', 'camera feeds on the map'], ['68 fps', 'detection + tracking, 1080p, RTX 3090']]} />
             </Slide>
 
             <Slide i={1} root={deck} kicker="1 / Detection & tracking" title="See every vehicle, in every frame.">
               <Cols>
                 <div>
                   <Cards items={[
-                    ['VehicleCount', 'Street and parking-lot images with car and truck boxes, many angles and lighting.'],
+                    ['Roboflow 100 Vehicles', 'Road scenes with labelled vehicles, many angles and lighting.'],
                     ['Udacity Self-Driving', 'Dashcam frames from highways and city streets in varied weather.'],
-                    ['Stanford Cars', 'High-resolution vehicles from multiple viewpoints.'],
+                    ['Stanford Cars', 'Close-up vehicles from many viewpoints, with boxes.'],
                   ]} />
-                  <p style={P}>~50,000 images, chosen for relevant conditions and perspectives.</p>
+                  <p style={P}>43,654 images (40,161 train, 3,493 validation), merged into one class: vehicle.</p>
                   <ul style={UL}>
-                    <li>YOLOv12n, 5 MB: ~60 fps on an RTX 3090 at 4K</li>
-                    <li>Confidence 0.05, IoU 0.1 for high recall</li>
+                    <li>YOLOv12n, 5 MB: 68 fps with tracking at 1080p on an RTX 3090</li>
+                    <li>50 epochs at 720 px, confidence 0.25 on the feeds</li>
                     <li>ByteTrack keeps one ID per vehicle through occlusion</li>
                   </ul>
                 </div>
