@@ -1,8 +1,8 @@
 """Build the website's data from exported footage.
 
 Two sets are indexed the same way:
-  * story scenes (pipeline/export_cameras.py → demo_footage/web) — short scrub clips for the landing page,
-  * live feeds (pipeline/export_live.py → demo_footage/live) — 45 s looping feeds for the city map.
+  * story scenes (pipeline/export_cameras.py → demo_footage/web): short scrub clips for the landing page,
+  * live feeds (pipeline/export_live.py → demo_footage/live): 45 s looping feeds for the city map.
 
 For every camera this:
   * picks each vehicle's best crops (pipeline/crops.py: not cut off, not occluded, sharp),
@@ -112,7 +112,7 @@ def matches_query(attr, colours, body, min_p=0.25):
 
 def reliable(consistency, margin, p1, min_side, contrast, n_crops, condition="day"):
     """Show a make/model when the crop has enough detail and either most crops agree or one clean
-    prediction is strong. Rain/snow/night — where confident-but-wrong labels happened — need the
+    prediction is strong. Rain/snow/night (where confident-but-wrong labels happened) need the
     crops to agree strongly."""
     if min_side < 48 or contrast < 20:
         return False
@@ -128,7 +128,7 @@ import src.models.classifier  # noqa: E402  (baseline model definition)
 
 LANDING_SCENES = [
     ("hwy1-boundary", "Overpass", "Looking down the lanes from ~8 m."),
-    ("main-broadway", "Pole camera", "An old city CCTV corner cam — 800×600."),
+    ("main-broadway", "Pole camera", "An old city CCTV corner cam, 800×600."),
     ("granville-broadway", "Rain", "Wet road, spray and reflections."),
     ("georgia-denman", "Night", "Streetlights, headlights and glare."),
     ("marine-main", "Snow", "Snow on the road at night."),

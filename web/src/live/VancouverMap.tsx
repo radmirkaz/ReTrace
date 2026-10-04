@@ -19,7 +19,7 @@ const COND: Record<Camera['condition'], string> = { day: '#5eead4', dusk: '#fbbf
 interface Props {
   cameras: Camera[]
   selected?: string
-  /** Ordered route (camera ids) of the tracked vehicle — drawn as numbered steps. */
+  /** Ordered route (camera ids) of the tracked vehicle, drawn as numbered steps. */
   highlight?: string[]
   /** Cameras to zoom the map onto; empty = whole city. */
   focus?: string[]

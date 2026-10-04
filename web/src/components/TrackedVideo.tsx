@@ -5,7 +5,7 @@ interface Props {
   src: string
   poster?: string
   tracks?: Tracks | null
-  /** 0..1 — when set, the video follows scroll instead of playing. */
+  /** 0..1. When set, the video follows scroll instead of playing. */
   progress?: number
   /** Track to draw in amber; every other box is dimmed by `othersOpacity`. */
   highlight?: number

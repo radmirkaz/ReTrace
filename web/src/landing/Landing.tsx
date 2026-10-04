@@ -42,7 +42,7 @@ function Hero({ poster }: { poster?: string }) {
           See every car.<br /><span style={{ color: 'var(--teal)' }}>Trace any one.</span>
         </h1>
         <p style={{ fontSize: 20, lineHeight: 1.5, color: 'var(--muted)', maxWidth: 580, margin: '0 0 32px' }}>
-          ReTrace turns the cameras a city already has into a searchable memory of every vehicle — found by appearance,
+          ReTrace turns the cameras a city already has into a searchable memory of every vehicle, found by appearance,
           by description, or by a witness’s voice. No licence plate needed.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>

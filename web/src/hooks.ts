@@ -19,7 +19,7 @@ export function useRevealProgress<T extends HTMLElement>() {
   return [ref, p] as const
 }
 
-/** Ticks every `ms` while mounted — drives ambient loops like waveforms. */
+/** Ticks every `ms` while mounted; drives ambient loops like waveforms. */
 export function useTicker(ms = 100) {
   const [t, setT] = useState(0)
   useEffect(() => {

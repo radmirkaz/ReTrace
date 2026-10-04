@@ -2,7 +2,7 @@
 
 Vehicle re-identification across city cameras. ReTrace detects and tracks every
 vehicle, recognises its make, model and generation, and finds a specific car by
-appearance, by a text description or by a witness's spoken statement — without
+appearance, by a text description or by a witness's spoken statement, without
 relying on licence plates.
 
 Built at StormHacks 2026 (SFU Burnaby, October 3–4).
@@ -17,9 +17,9 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-- `#/` — the story: the problem, detection on real footage in any condition, a witness's
+- `#/` is the story: the problem, detection on real footage in any condition, a witness's
   voice statement turned into a search, and one car traced across cameras.
-- `#/live` — the city map: click any camera to watch its feed with tracks, inspect a
+- `#/live` is the city map: click any camera to watch its feed with tracks, inspect a
   vehicle, follow it to other cameras, or search by text or voice.
 - Press `~` (or **Under the hood**) for models, datasets and metrics.
 
@@ -71,4 +71,4 @@ Camera locations on the map are illustrative; the footage comes from public data
 | RoundaboutHD | 4K multi-camera feeds | See dataset page |
 | AAU RainSnow | Rain, snow and night feeds (Denmark) | CC BY 4.0 |
 | MIO-TCD Localization | Camera-quality and angle evaluation | CC BY-NC-SA 4.0 |
-| OpenStreetMap | Vancouver map geometry | ODbL — © OpenStreetMap contributors |
+| OpenStreetMap | Vancouver map geometry | ODbL, © OpenStreetMap contributors |

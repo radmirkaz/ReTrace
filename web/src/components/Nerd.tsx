@@ -5,7 +5,7 @@ interface Metrics { [k: string]: unknown }
 
 const MODELS = [
   ['Detector', 'YOLOv12n, fine-tuned', '~45k traffic images (Roboflow VehicleCount, vehicles-q0x2v, Stanford Cars, Udacity)', 'P 88% · R 86% · AP50 92%'],
-  ['Tracker', 'ByteTrack', 'No training — associates detections frame to frame', 'Stable IDs through occlusion'],
+  ['Tracker', 'ByteTrack', 'No training; associates detections frame to frame', 'Stable IDs through occlusion'],
   ['Re-ID / classifier', 'EfficientNetV2-M', '407k images · 9,630 make/model/generation classes · CE + contrastive + circle loss', 'Acc@1 91.6% · MAP@5 92.6% · 2048-D embedding'],
   ['Text → image', 'CLIP ViT-B/32 (LAION-2B)', 'Zero-shot, no fine-tuning', 'Ranks every crop against a description'],
   ['Speech', 'Whisper base', 'Zero-shot', 'Witness statement → search query'],
@@ -53,7 +53,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
           <H>Held-out evaluation footage</H>
           <Table head={['Dataset', 'Country', 'Size', 'Used for']} rows={DATASETS} />
 
-          <H>Class coverage — share of 407k training images by brand origin</H>
+          <H>Class coverage: share of 407k training images by brand origin</H>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {COVERAGE.map(([k, v]) => (
               <div key={k} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px', gap: 10, alignItems: 'center', fontSize: 13 }}>

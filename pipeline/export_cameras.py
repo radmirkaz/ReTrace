@@ -24,7 +24,7 @@ CANAI_VIDEOS = Path(r"C:\Users\Radmir\Desktop\canai25\yolo\videos")
 AAU = DATA / "AAU_RainSnow" / "aaurainsnow"
 CITYFLOW = DATA / "CityFlowV2" / "train" / "S01"
 
-# Kingsway corridor, west to east — CityFlow S01 cameras c001..c005 (Dubuque, Iowa).
+# Kingsway corridor, west to east: CityFlow S01 cameras c001..c005 (Dubuque, Iowa).
 KINGSWAY = [("kingsway-fraser", "Kingsway & Fraser St", 49.2496, -123.0890),
             ("kingsway-knight", "Kingsway & Knight St", 49.2445, -123.0770),
             ("kingsway-victoria", "Kingsway & Victoria Dr", 49.2415, -123.0660),
@@ -54,7 +54,7 @@ def best_window(model, video: Path, dur: float) -> float:
 
 
 def cityflow_target():
-    """Vehicle ID seen by all S01 cameras with the largest average box — our 'trace one car'."""
+    """Vehicle ID seen by all S01 cameras with the largest average box, our 'trace one car'."""
     seen = {}
     for cam in sorted(CITYFLOW.glob("c*")):
         for line in (cam / "gt" / "gt.txt").read_text().splitlines():

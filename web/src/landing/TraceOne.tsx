@@ -55,7 +55,7 @@ export default function TraceOne({ trace, vehicles }: { trace: LandingData['trac
     <section id="trace" ref={ref} style={{ position: 'relative', height: '520vh' }}>
       <div style={{ position: 'sticky', top: 0, height: '100vh', display: 'flex', alignItems: 'center' }}>
         <div className="wrap">
-          <Header label="03 — Trace one car" color="var(--amber)" title={captions[phase]} phase={phase} />
+          <Header label="03 / Trace one car" color="var(--amber)" title={captions[phase]} phase={phase} />
           <div ref={stage} style={{ position: 'relative', display: 'flex', gap: '4%', alignItems: 'flex-start' }}>
             <div ref={videoBox} style={{ position: 'relative', width: '60%', flex: 'none', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)' }}>
               <div style={{ opacity: 1 - mapO }}>

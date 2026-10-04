@@ -24,14 +24,14 @@ export default function Witness({ data, vehicles }: { data: NonNullable<LandingD
   const lead = hits[0] && vehicles[hits[0].gid]
   const leadK = span(p, 0.84, 0.89)
   const phase = p < 0.08 ? 0 : p < 0.42 ? 1 : p < 0.58 ? 2 : p < 0.84 ? 3 : 4
-  const captions = ['A witness doesn’t remember the plate.', 'But they remember the car.', 'Whisper turns their words into a search.', 'CLIP ranks every vehicle crop.', 'One lead — then trace it.']
+  const captions = ['A witness doesn’t remember the plate.', 'But they remember the car.', 'Whisper turns their words into a search.', 'CLIP ranks every vehicle crop.', 'One lead. Then trace it.']
   const maxScore = hits[0]?.score || 1
 
   return (
     <section ref={ref} style={{ position: 'relative', height: '480vh' }}>
       <div style={{ position: 'sticky', top: 0, height: '100vh', display: 'flex', alignItems: 'center' }}>
         <div className="wrap">
-          <Header label="02 — Hit-and-run · the witness speaks" color="var(--violet)" title={captions[phase]} phase={phase} />
+          <Header label="02 / Hit-and-run · the witness speaks" color="var(--violet)" title={captions[phase]} phase={phase} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px 4%', alignItems: 'flex-start' }}>
             <div style={{ flex: '0 0 38%', minWidth: 300, padding: 22, borderRadius: 14, border: '1px solid var(--line)', background: 'var(--panel)' }}>
               <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--dim)' }}><span>WITNESS STATEMENT · VOICE</span><span>21:52</span></div>
@@ -81,7 +81,7 @@ export default function Witness({ data, vehicles }: { data: NonNullable<LandingD
                       <div style={{ padding: '6px 8px' }}>
                         <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
                           <span style={{ color: '#93a4b8' }}>{h.cam.toUpperCase()} · #{h.track}</span>
-                          <span style={{ color: top ? 'var(--amber)' : 'var(--teal)' }}>{ranked ? h.score.toFixed(3) : '—'}</span>
+                          <span style={{ color: top ? 'var(--amber)' : 'var(--teal)' }}>{ranked ? h.score.toFixed(3) : '...'}</span>
                         </div>
                         <div style={{ height: 3, marginTop: 5, borderRadius: 2, background: '#141c28' }}>
                           <div style={{ height: '100%', borderRadius: 2, background: top ? 'var(--amber)' : 'var(--teal)', width: `${(h.score / maxScore) * 100 * fill}%`, transition: 'width .8s' }} />

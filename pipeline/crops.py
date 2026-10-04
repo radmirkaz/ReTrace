@@ -2,7 +2,7 @@
 
 The largest box of a track is often the worst one: the car is entering or leaving the
 frame (truncated), overlapped by a neighbour, or motion-blurred. Every detection is
-scored instead, and the best few — spread over time — are kept so their embeddings
+scored instead, and the best few (spread over time) are kept so their embeddings
 can be averaged.
 """
 import math

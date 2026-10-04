@@ -18,7 +18,7 @@ export interface Camera {
   name: string
   lat: number
   lon: number
-  /** Where the footage really comes from — shown in the UI so demo feeds are never passed off as Vancouver. */
+  /** Where the footage really comes from, shown in the UI so demo feeds are never passed off as Vancouver. */
   source: string
   condition: 'day' | 'dusk' | 'night' | 'rain' | 'snow'
   view: 'overpass' | 'pole' | 'roundabout' | 'intersection'
@@ -39,7 +39,7 @@ export interface Vehicle {
   color?: string
   speed?: number
   quality?: number
-  /** Body type and colour from CLIP — robust even when the make/model is not. */
+  /** Body type and colour from CLIP, robust even when the make/model is not. */
   body?: string
   /** True only when crops agree, the margin is clear and the crop has enough detail. */
   reliable?: boolean
@@ -47,7 +47,7 @@ export interface Vehicle {
   sightings: Sighting[]
   /** The re-ID model's matches on other corridor cameras, in route order (includes itself); `correct` is graded by ground truth. */
   journey?: Sighting[]
-  /** Look-alikes on other cameras — not confirmed to be the same car. */
+  /** Look-alikes on other cameras, not confirmed to be the same car. */
   similar?: Sighting[]
 }
 

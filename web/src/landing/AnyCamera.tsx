@@ -25,7 +25,7 @@ export default function AnyCamera({ scenes }: { scenes: LandingScene[] }) {
       <div style={{ position: 'sticky', top: 0, height: '100vh', display: 'flex', alignItems: 'center' }}>
         <div className="wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: 40, alignItems: 'center' }}>
           <div style={{ flex: '1 1 300px', maxWidth: 380 }}>
-            <div className="label" style={{ color: 'var(--teal)' }}>01 — Any camera, any condition</div>
+            <div className="label" style={{ color: 'var(--teal)' }}>01 / Any camera, any condition</div>
             <h2 style={{ fontSize: 44, lineHeight: 1.04, letterSpacing: -1.5, margin: '14px 0 26px' }}>Plug into the cameras a city already has.</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map(([title, sub], i) => (

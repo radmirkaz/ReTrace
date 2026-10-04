@@ -57,7 +57,7 @@ export default function Live() {
         <aside style={{ flex: '0 1 420px', minWidth: 300, height: FULL, overflowY: 'auto', background: 'var(--panel)', padding: 28 }}>
           <div className="label" style={{ color: 'var(--teal)' }}>City of Vancouver</div>
           <h2 style={{ fontSize: 30, letterSpacing: -1, margin: '10px 0' }}>Pick a camera.</h2>
-          <p style={{ color: 'var(--muted)', lineHeight: 1.55 }}>Every feed runs detection, tracking and re-identification. Click a vehicle to follow it, see what it is and where else it was seen — or search by description or voice.</p>
+          <p style={{ color: 'var(--muted)', lineHeight: 1.55 }}>Every feed runs detection, tracking and re-identification. Click a vehicle to follow it, see what it is and where else it was seen, or search by description or voice.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 18 }}>
             {cameras.map((c) => (
               <button key={c.id} className="btn" onClick={() => open(c.id)} style={{ justifyContent: 'space-between' }}>
@@ -141,7 +141,7 @@ function VehicleDetail({ v, camName, onJump, onZoom, onBack }: { v: Vehicle; cam
             <div style={{ marginTop: 12 }}>
               <span className="chip" style={{ border: '1px solid var(--line-2)', color: 'var(--muted)' }}>MAKE / MODEL UNCERTAIN</span>
               <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, margin: '8px 0' }}>
-                Crops disagree or lack detail{v.evidence ? ` (agreement ${Math.round(v.evidence.consistency * 100)}%, ${v.evidence.min_side}px)` : ''} — matching still works on appearance.
+                Crops disagree or lack detail{v.evidence ? ` (agreement ${Math.round(v.evidence.consistency * 100)}%, ${v.evidence.min_side}px)` : ''}. Matching still works on appearance.
               </p>
               <button className="btn mono" onClick={() => setGuesses((g) => !g)} style={{ fontSize: 11, minHeight: 32, padding: '4px 10px' }}>{guesses ? 'Hide' : 'Show'} raw guesses</button>
             </div>

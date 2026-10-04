@@ -1,7 +1,7 @@
 import { useRevealProgress, useTicker, ease } from '../hooks'
 
 const PLATES = [
-  { plate: 'LKX 492', blur: 0, label: 'Readable — on a good day', color: '#12304f' },
+  { plate: 'LKX 492', blur: 0, label: 'Readable, on a good day', color: '#12304f' },
   { plate: 'LKX 492', blur: 6, label: 'Covered in mud or snow', color: '#12304f' },
   { plate: 'GRT 118', blur: 0, label: 'Swapped from another car', color: '#b45309' },
   { plate: '??? ???', blur: 0, label: 'The witness never saw it', color: '#9ca3af' },
@@ -18,19 +18,19 @@ export default function Problem() {
 
   return (
     <section id="problem" ref={ref} className="wrap" style={{ padding: "120px 28px 100px" }}>
-      <div className="label" style={{ color: 'var(--rose)' }}>00 — The problem</div>
+      <div className="label" style={{ color: 'var(--rose)' }}>00 / The problem</div>
       <h2 style={{ fontSize: 'clamp(38px, 5vw, 60px)', lineHeight: 1.02, letterSpacing: -2, margin: '14px 0 18px', maxWidth: 940 }}>
         In Canada, a car is stolen <span style={{ color: 'var(--rose)' }}>every five minutes.</span> Hit-and-run drivers simply drive away.
       </h2>
       <p style={{ fontSize: 19, lineHeight: 1.55, color: 'var(--muted)', maxWidth: 760, margin: '0 0 48px' }}>
-        Cameras are scarce, rarely recorded, and built around licence plates — the one thing a thief changes first and a
+        Cameras are scarce, rarely recorded, and built around licence plates: the one thing a thief changes first and a
         hit-and-run witness never catches. What people <em>do</em> remember is the car.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 1, background: 'var(--line)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
         {[
           [Math.round(105000 * e).toLocaleString('en-US'), 'vehicles stolen in Canada in 2022'],
-          [`C$${(1.5 * e).toFixed(1)}B`, 'in theft claims — called a “national crisis” by insurers'],
+          [`C$${(1.5 * e).toFixed(1)}B`, 'in theft claims, called a “national crisis” by insurers'],
           [String(Math.round(221 * e)), 'traffic cameras for 710,000 people in Vancouver'],
         ].map(([v, l]) => (
           <div key={l} style={{ background: '#070b12', padding: 28 }}>

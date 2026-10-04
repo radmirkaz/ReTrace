@@ -1,4 +1,4 @@
-"""ReTrace API — serves the indexed feeds and runs text/voice search on the GPU.
+"""ReTrace API: serves the indexed feeds and runs text/voice search on the GPU.
 
 Run on the GPU PC from the repository root (canai env):
     uvicorn backend.app:app --host 0.0.0.0 --port 8000
