@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { asset, loadCameras, loadLanding, loadVehicles, type LandingData, type Vehicle } from '../data'
 import AnyCamera from './AnyCamera'
@@ -28,6 +29,7 @@ export default function Landing() {
       )}
       <CostSpeed />
       <Outro />
+      <Thanks />
     </main>
   )
 }
@@ -90,6 +92,26 @@ function Outro() {
       </h2>
       <p style={{ color: 'var(--muted)', margin: '0 0 30px', fontSize: 18 }}>No new cameras. No per-site training. Open the city map and pick a camera.</p>
       <a className="btn btn-primary" href="#/live">Open the live map →</a>
+    </section>
+  )
+}
+
+
+/** Closing slide for the pitch. */
+function Thanks() {
+  const rise = (delay: number) => ({ initial: { opacity: 0, y: 24 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, amount: 0.5 }, transition: { duration: 0.7, delay } })
+  return (
+    <section style={{ minHeight: 'calc(100vh - 72px)', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '80px 28px', borderTop: '1px solid var(--line)', background: 'radial-gradient(ellipse at 50% 40%, rgba(94,234,212,.08), transparent 60%)' }}>
+      <div>
+        <motion.img {...rise(0)} src="/team/radmir.jpg" alt="Radmir Zosimov" style={{ display: 'block', margin: '0 auto', width: 'clamp(160px, 22vw, 240px)', aspectRatio: '1', objectFit: 'cover', borderRadius: '50%', border: '3px solid var(--teal)', boxShadow: '0 0 0 10px rgba(94,234,212,.08), 0 20px 60px rgba(0,0,0,.5)' }} />
+        <motion.h2 {...rise(0.15)} style={{ fontSize: 'clamp(56px, 9vw, 112px)', lineHeight: 1, letterSpacing: -3, margin: '36px 0 14px' }}>
+          Thank you<span style={{ color: 'var(--teal)' }}>!</span>
+        </motion.h2>
+        <motion.div {...rise(0.3)} style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 600, letterSpacing: -0.5 }}>Radmir Zosimov</motion.div>
+        <motion.div {...rise(0.45)} className="mono" style={{ marginTop: 14, fontSize: 'clamp(13px, 1.4vw, 16px)', color: 'var(--muted)', letterSpacing: 1 }}>
+          <span style={{ color: 'var(--teal)' }}>12</span> hackathon wins &amp; podiums <span style={{ color: 'var(--dim)', margin: '0 10px' }}>·</span> <span style={{ color: 'var(--teal)' }}>7</span> Kaggle medals
+        </motion.div>
+      </div>
     </section>
   )
 }
