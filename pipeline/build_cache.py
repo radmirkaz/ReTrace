@@ -42,6 +42,9 @@ REID_EMBED_WEIGHTS = CANAI / "submission" / "reid" / "pretrain" / "v24.pt.sd"  #
 # "v24" = re-ID embedding from v24 only; "ensemble" = mean of v24 and ep6_v8 embeddings
 # (pipeline/eval_reid.py on CityFlowV2: v24 mAP 67.4%, ensemble 73.3%).
 REID_EMBED = "v24"
+# Classes the classifier over-predicts as a fallback on weak crops (Acura MDX was top-1 for ~24% of
+# vehicles). They are removed outright; other over-predicted classes are damped by debiasing below.
+BANNED_CLASSES = ("/acura/mdx/",)
 CLASS_META = CANAI / "submission" / "notebooks" / "llm_data_9630_classes.json"
 CLIP_MODEL = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -251,6 +254,63 @@ def assign_ground_truth(spec, vehicles):
     return out
 
 
+def classify_all(vehicles, M, stats):
+    """Make/model post-processing over the whole footage set:
+    1. remove banned fallback classes;
+    2. debias over-predicted classes (divide by the damped mean prediction across all vehicles);
+    3. keep only classes whose body type agrees with what CLIP sees (top-20 candidates);
+    4. decide reliability from crop agreement, margin and crop evidence."""
+    if not vehicles:
+        return
+    groups = sorted(set(BODY_GROUP.values()))
+    pcs = {g: v.pop("_pc") * M.allowed for g, v in vehicles.items()}
+    mean_p = np.mean([pc.mean(0) / max(1e-12, pc.mean(0).sum()) for pc in pcs.values()], axis=0)
+    debias = 1.0 / np.sqrt(mean_p + 1e-4)
+    # No single class may soak up more than MAX_SHARE of all top-1 predictions: damp sinks until it holds.
+    MAX_SHARE = 0.03
+    damped = {}
+    seen_g = {g: _family_probs(v["_body"], BODIES, BODY_GROUP) for g, v in vehicles.items()}
+
+    def final_top1(g, w):
+        pr = ((pcs[g] * w) / (pcs[g] * w).sum(axis=1, keepdims=True)).mean(0)
+        cands = np.argsort(-pr)[:20]
+        fit = [int(c) for c in cands if float(M.class_body[c] @ seen_g[g]) >= 0.15]
+        return fit[0] if fit else int(cands[0])
+
+    for _ in range(10):
+        tops = np.array([final_top1(g, debias) for g in pcs])
+        counts = np.bincount(tops, minlength=len(debias)) / len(tops)
+        over = np.where(counts > MAX_SHARE)[0]
+        if not len(over):
+            break
+        for c in over:
+            debias[c] *= MAX_SHARE / counts[c]
+            damped[M.names[int(c)]] = round(float(counts[c]), 3)
+    stats["sink_classes_damped"] = damped
+    for g, v in vehicles.items():
+        pc = pcs[g] * debias
+        pc = pc / pc.sum(axis=1, keepdims=True)
+        probs = pc.mean(0)
+        seen = _family_probs(v["_body"], BODIES, BODY_GROUP)
+        cands = np.argsort(-probs)[:20]
+        fit = [int(c) for c in cands if float(M.class_body[c] @ seen) >= 0.15]
+        conflict = not fit or fit[0] != int(cands[0])
+        ranked = fit + [int(c) for c in cands if int(c) not in fit]
+        top = ranked[:5]
+        top1 = top[0]
+        consistency = float((pc.argmax(axis=1) == top1).mean())
+        p1 = float(probs[top1])
+        p2 = float(probs[top[1]]) if len(top) > 1 else 0.0
+        ok = bool(fit) and reliable(consistency, p1 - p2, p1, v["_min_side"], v["_contrast"], len(pc), v["_cond"])
+        stats["reliable"] = stats.get("reliable", 0) + int(ok)
+        stats["body_conflicts_fixed"] = stats.get("body_conflicts_fixed", 0) + int(conflict and bool(fit))
+        v["reliable"] = ok
+        v["top5"] = [{"name": M.names[c], "p": round(float(probs[c]), 4)} for c in top]
+        v["evidence"] = {"consistency": round(consistency, 2), "margin": round(p1 - p2, 3), "min_side": v.pop("_min_side"),
+                         "contrast": round(v.pop("_contrast"), 1), "crops": len(pc), "body_check": "ok" if fit else "conflict"}
+        v.pop("_cond", None)
+
+
 class Models:
     def __init__(self):
         meta = json.loads(CLASS_META.read_text())
@@ -268,6 +328,36 @@ class Models:
         from transformers import CLIPModel, CLIPProcessor
         self.clip = CLIPModel.from_pretrained(CLIP_MODEL).to(DEVICE).eval()
         self.proc = CLIPProcessor.from_pretrained(CLIP_MODEL)
+        meta = sorted(meta, key=lambda m: int(m["class_id"]))
+        self.allowed = np.array([0.0 if any(b in m["class"] for b in BANNED_CLASSES) else 1.0 for m in meta], dtype=np.float32)
+        self.class_body = class_body_groups(meta, self)
+
+
+def class_body_groups(meta, M):
+    """Body-group distribution for every class: from its description when it names a body type,
+    blended with CLIP's text knowledge of the model name (e.g. 'Toyota Tacoma' -> pickup)."""
+    groups = sorted(set(BODY_GROUP.values()))
+    words = [("pickup", {"pickup": 1}), ("sport utility", {"suv": 1}), ("suv", {"suv": 1}), ("crossover", {"suv": 1}), ("minivan", {"suv": 1}),
+             ("van", {"van": 1}), ("bus", {"heavy": 1}), ("motorcycle", {"moto": 1}), ("truck", {"pickup": .5, "heavy": .5}),
+             ("sedan", {"car": 1}), ("hatchback", {"car": 1}), ("coupe", {"car": 1}), ("convertible", {"car": 1}), ("roadster", {"car": 1}),
+             ("wagon", {"car": 1}), ("sports car", {"car": 1})]
+    with torch.no_grad():
+        body_t = F.normalize(M.clip.get_text_features(**M.proc(text=[f"a photo of a {b}" for b in BODIES], return_tensors="pt", padding=True).to(DEVICE)).float(), dim=1)
+        out = np.zeros((len(meta), len(groups)), dtype=np.float32)
+        for i in range(0, len(meta), 512):
+            chunk = meta[i:i + 512]
+            t = F.normalize(M.clip.get_text_features(**M.proc(text=[f"a photo of a {pretty_class(m['class'])}" for m in chunk], return_tensors="pt", padding=True).to(DEVICE)).float(), dim=1)
+            bp = F.softmax((t @ body_t.T) * 100, dim=1).cpu().numpy()
+            for j, m in enumerate(chunk):
+                clip_g = _family_probs(bp[j], BODIES, BODY_GROUP)
+                desc = str(m.get("description") or "").lower()
+                hit = next((g for w, g in words if re.search(r"\b" + w + r"\b", desc)), None)
+                if hit:
+                    kw = np.array([hit.get(g, 0.0) for g in groups])
+                    out[i + j] = 0.7 * kw + 0.3 * clip_g
+                else:
+                    out[i + j] = clip_g
+    return out
 
 
 def index(M, src_dir, spec_name, out):
@@ -325,15 +415,9 @@ def index(M, src_dir, spec_name, out):
                 colour_p = F.softmax((ci @ colour_t.T)[0] * 100, dim=0).cpu().numpy()
                 body = BODIES[int(body_p.argmax())]
                 colour = COLOURS[int(colour_p.argmax())]
-            top = torch.topk(probs, 5)
-            top1 = int(top.indices[0])
-            consistency = float((per_crop.argmax(dim=1) == top1).float().mean())
-            margin = float(top.values[0] - top.values[1])
             best = pick["crops"][0]
             min_side = min(best.shape[:2])
             contrast = float(cv2.cvtColor(best, cv2.COLOR_BGR2GRAY).std())
-            ok = reliable(consistency, margin, float(top.values[0]), min_side, contrast, len(pick["crops"]), cam.get("condition", "day"))
-            stats["reliable"] = stats.get("reliable", 0) + int(ok)
             gid = f"{cid}:{tid}"
             crop_rel = f"{rel}crops/{cid}_{tid}.jpg"
             cv2.imwrite(str(CACHE / crop_rel), pick["crops"][0], [cv2.IMWRITE_JPEG_QUALITY, 92])
@@ -342,14 +426,16 @@ def index(M, src_dir, spec_name, out):
             keys.append(gid)
             stats["identified"] += 1
             vehicles[gid] = {
-                "gid": gid, "crop": crop_rel, "color": colour, "body": body, "quality": pick["quality"], "reliable": ok,
-                "evidence": {"consistency": round(consistency, 2), "margin": round(margin, 3), "min_side": int(min_side), "contrast": round(contrast, 1), "crops": len(pick["crops"])},
-                "top5": [{"name": names[int(i)], "p": round(float(p), 4)} for p, i in zip(top.values, top.indices)],
+                "gid": gid, "crop": crop_rel, "color": colour, "body": body, "quality": pick["quality"],
+                "_pc": per_crop.cpu().numpy(), "_min_side": int(min_side), "_contrast": contrast, "_cond": cam.get("condition", "day"),
                 "sightings": [{"cam": cid, "track": int(tid), "t": round(pick["frames"][0] / hi_tracks["fps"], 2), "crop": crop_rel, "sim": 1.0}],
                 "_fi": pick["frames"][0], "_box": pick["box"], "_body": body_p, "_colour": colour_p, "_night": cam.get("condition") == "night",
             }
-        mine = [v for k, v in vehicles.items() if k.startswith(cid + ":")]
-        print(f"{cid} [{cam.get('condition')}]: {len(picks)} tracks, {len(mine)} identified, {sum(v['reliable'] for v in mine)} with a reliable make/model")
+
+    classify_all(vehicles, M, stats)
+    for cam in spec["cameras"]:
+        mine = [v for k, v in vehicles.items() if k.startswith(cam["id"] + ":")]
+        print(f"{cam['id']} [{cam.get('condition')}]: {len(mine)} identified, {sum(v['reliable'] for v in mine)} with a reliable make/model")
 
     E = np.stack(emb)
     S = E @ E.T
