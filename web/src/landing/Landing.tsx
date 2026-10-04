@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { asset, loadLanding, loadVehicles, type LandingData, type Vehicle } from '../data'
+import { asset, loadCameras, loadLanding, loadVehicles, type LandingData, type Vehicle } from '../data'
 import AnyCamera from './AnyCamera'
 import Problem from './Problem'
 import TraceOne from './TraceOne'
@@ -15,7 +15,7 @@ export default function Landing() {
 
   return (
     <main>
-      <Hero poster={data ? asset(data.trace.poster) : undefined} />
+      <Hero />
       <Problem />
       {error && <p className="wrap mono" style={{ color: 'var(--rose)' }}>Could not load footage: {error}</p>}
       {data && (
@@ -30,10 +30,36 @@ export default function Landing() {
   )
 }
 
-function Hero({ poster }: { poster?: string }) {
+// Hero backdrop: one frame per camera, cycling through angles and conditions.
+const HERO_CAMS = ['hwy1-boundary', 'kingsway-nanaimo', 'georgia-denman', 'cambie-king-edward-e', 'granville-broadway', 'knight-bridge', 'broadway-arbutus', 'marine-main']
+const SLIDE_MS = 6000
+
+function Hero() {
+  const [posters, setPosters] = useState<string[]>([])
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    loadCameras().then((cams) => {
+      const byId = new Map(cams.map((c) => [c.id, c]))
+      setPosters(HERO_CAMS.map((id) => byId.get(id)).filter(Boolean).map((c) => asset(c!.poster)))
+    })
+  }, [])
+  useEffect(() => {
+    if (posters.length < 2) return
+    const t = setInterval(() => setI((x) => (x + 1) % posters.length), SLIDE_MS)
+    return () => clearInterval(t)
+  }, [posters.length])
+
   return (
     <section style={{ position: 'relative', minHeight: 'calc(100vh - 72px)', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-      {poster && <img src={poster} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3, filter: 'saturate(.6)' }} />}
+      {posters.map((src, k) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          className={k === i ? 'hero-slide on' : 'hero-slide'}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'saturate(.6)' }}
+        />
+      ))}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(5,7,11,.35), #05070b 92%)' }} />
       <div className="grid-bg" style={{ position: 'absolute', inset: 0, backgroundSize: '64px 64px' }} />
       <div className="wrap" style={{ position: 'relative' }}>

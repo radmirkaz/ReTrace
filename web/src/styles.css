@@ -82,3 +82,7 @@ img, video { display: block; max-width: 100%; }
 .lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(2, 4, 8, .92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; cursor: zoom-out; }
 .lightbox img { max-width: min(1100px, 92vw); max-height: 78vh; object-fit: contain; border: 2px solid var(--amber); border-radius: 6px; image-rendering: auto; }
 .zoomable { cursor: zoom-in; }
+
+/* Hero slideshow: slow crossfade with a gentle zoom on the visible frame */
+.hero-slide { opacity: 0; transform: scale(1.04); transition: opacity 1.6s ease, transform 7.5s linear; }
+.hero-slide.on { opacity: .3; transform: scale(1.12); }
