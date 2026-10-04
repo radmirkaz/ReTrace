@@ -9,7 +9,7 @@ interface Metrics {
 }
 interface Curves { precision: number[]; recall: number[]; map50: number[]; map5095: number[]; epochs: number }
 
-const SLIDES = ['Overview', 'Detection', 'Re-ID data', 'Re-ID model', 'Trustworthy labels', 'Cross-camera', 'Smart search', 'Speed', 'Evaluation', "What's next"]
+const SLIDES = ['Overview', 'Detection', 'Re-ID data', 'Re-ID model', 'Smart search', 'Speed', 'Evaluation', "What's next"]
 
 const COVERAGE = [['USA', 20.9], ['Japan', 13.5], ['Germany', 13.5], ['Italy', 6.4], ['France', 5.9], ['Korea', 5.1], ['China', 4.4], ['UK', 3.8], ['Other', 26.5]] as const
 
@@ -43,7 +43,6 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
 
   const jump = (i: number) => deck.current?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ behavior: 'smooth' })
   const reid = metrics?.reid_cityflow_s01
-  const match = metrics?.journey_matching_live_feeds
 
   return (
     <AnimatePresence>
@@ -65,7 +64,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               <Flow lanes={[
                 { colour: 'var(--teal)', steps: ['Camera feed', 'YOLOv12n detect', 'ByteTrack', 'Best crops', 'EffNetV2-M class + 2048-D', 'Vehicle index'] },
                 { colour: 'var(--violet)', steps: ['Voice', 'Whisper', 'Colour / body / make', 'CLIP text', 'Rank + gate crops'] },
-                { colour: 'var(--amber)', steps: ['Selected car', 'v24 fingerprint', 'Body & colour gate', 'Mutual best match', 'Journey across cameras'] },
+                { colour: 'var(--amber)', steps: ['Selected car', 'Re-ID fingerprint', 'Body & colour gate', 'Mutual best match', 'Journey across cameras'] },
               ]} />
               <Stats items={[['9,630', 'make / model / generation classes'], ['500k', 'training images'], ['18', 'camera feeds on the map'], ['~60 fps', 'detector on an RTX 3090, 4K']]} />
             </Slide>
@@ -119,45 +118,19 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
                     <li>EfficientNetV2-M, 300×300 input, 2048-D embedding</li>
                     <li>Cross-entropy + contrastive + circle loss</li>
                     <li>FP16, 8 epochs, batch 16, LR 6e-5</li>
-                    <li>Make/model from the classifier; matching from the v24 embedding</li>
+                    <li>Make/model from the fine-tuned classifier; matching from the pretrained embedding</li>
                   </ul>
                   <Stats items={[['91.6%', 'Acc@1, Stanford Cars'], ['92.6%', 'MAP@5'], ['93.7%', 'MAP@5 with class + embedding score']]} compact />
                 </div>
                 <div>
                   <div className="label" style={{ color: 'var(--dim)', fontSize: 11, marginBottom: 10 }}>Cross-camera re-ID · CityFlowV2 S01 · 36 cars · 5 cameras</div>
-                  {reid ? <Table head={['Embedding', 'Rank-1', 'Rank-5', 'mAP']} rows={Object.entries(reid).map(([k, r]) => [k, pct(r.rank1), pct(r.rank5), pct(r.mAP)])} /> : <p style={P}>Benchmark loading…</p>}
+                  {reid ? <Table head={['Embedding', 'Rank-1', 'Rank-5', 'mAP']} rows={Object.entries(reid).map(([k, r]) => [MODEL_NAMES[k] ?? k, pct(r.rank1), pct(r.rank5), pct(r.mAP)])} /> : <p style={P}>Benchmark loading…</p>}
                   <p style={P}>Zero-shot: neither checkpoint has seen CityFlow.</p>
                 </div>
               </Cols>
             </Slide>
 
-            <Slide i={4} root={deck} kicker="4 / Built at StormHacks" title="Labels you can trust, or none at all.">
-              <Cards cols={3} items={[
-                ['Best-crop selection', 'Every detection is scored for frame-edge cut-off, overlap, shape, size, confidence and sharpness. The best 3 to 4 crops are averaged.'],
-                ['Sink-class control', 'Acura MDX took 24% of labels on weak crops. It is removed, and no class may take more than 3% of all labels.'],
-                ['Body-type cross-check', 'A model whose body type contradicts what CLIP sees (an SUV label on a pickup) is replaced from the top 20. 157 labels corrected.'],
-                ['Reliability gate', 'A make/model needs crop agreement, a clear margin and enough detail. Rain, snow and night need strong agreement.'],
-                ['Honest fallback', 'When unsure, ReTrace says "white pickup truck", not a confident wrong model.'],
-                ['Native resolution', 'Tracking and crops run on source footage up to 1920 px; the web only gets a 960 px copy.'],
-              ]} />
-            </Slide>
-
-            <Slide i={5} root={deck} kicker="5 / Following one car" title="The model proposes. Ground truth grades.">
-              <Cols>
-                <ul style={UL}>
-                  <li>Best match on each camera along the corridor</li>
-                  <li>Body group and colour family must agree (brown and black count as one)</li>
-                  <li>Mutual best match: the other car must pick this one back</li>
-                  <li>Threshold chosen by F1 on labelled cross-camera pairs</li>
-                </ul>
-                <div>
-                  <div className="label" style={{ color: 'var(--dim)', fontSize: 11, marginBottom: 10 }}>Journey matching on live feeds · {match?.gt_pairs ?? '…'} labelled pairs</div>
-                  {match ? <Table head={['Method', 'Precision', 'Recall', 'F1']} rows={Object.entries(match.variants).map(([k, v]) => [k, pct(v.precision), pct(v.recall), pct(v.f1)])} /> : <p style={P}>Loading…</p>}
-                </div>
-              </Cols>
-            </Slide>
-
-            <Slide i={6} root={deck} kicker="6 / Smart search" title="Say what you saw. Get the car.">
+            <Slide i={4} root={deck} kicker="4 / Smart search" title="Say what you saw. Get the car.">
               <Cards cols={3} items={[
                 ['Whisper', 'Transcribes a spoken statement, robust to accents and noise.'],
                 ['Query parsing', 'Colour, body type and make are read from the words ("blue pickup, maybe a Toyota").'],
@@ -168,7 +141,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               ]} />
             </Slide>
 
-            <Slide i={7} root={deck} kicker="7 / Speed estimation" title="Pixels to km/h with a homography.">
+            <Slide i={5} root={deck} kicker="5 / Speed estimation" title="Pixels to km/h with a homography.">
               <ol style={{ ...UL, listStyle: 'decimal' }}>
                 <li>Four points on the road plane plus a reference distance</li>
                 <li>Homography from image to ground coordinates</li>
@@ -178,7 +151,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               </ol>
             </Slide>
 
-            <Slide i={8} root={deck} kicker="8 / Evaluation footage" title="Held out, every condition.">
+            <Slide i={6} root={deck} kicker="6 / Evaluation footage" title="Held out, every condition.">
               <Table head={['Dataset', 'Where', 'What', 'Used for']} rows={[
                 ['CityFlowV2', 'Iowa, USA', '46 cameras, 880 labelled vehicles', 'Kingsway corridor, re-ID benchmark'],
                 ['RoundaboutHD', 'UK', '4 × 4K cameras, 512 vehicles', 'Cambie corridor, 4K feeds'],
@@ -188,7 +161,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               <p style={P}>Map locations are illustrative; feeds come from these public datasets.</p>
             </Slide>
 
-            <Slide i={9} root={deck} kicker="9 / What's next" title="From demo to city deployment.">
+            <Slide i={7} root={deck} kicker="7 / What's next" title="From demo to city deployment.">
               <Cards cols={2} items={[
                 ['Pedestrians and cyclists', 'Extend detection to vulnerable road users for hit-and-run cases.'],
                 ['Newer vehicles', 'Refresh the class set with 2022+ trucks and EVs, the known gap.'],
@@ -205,6 +178,11 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
 
 const P: React.CSSProperties = { color: 'var(--muted)', lineHeight: 1.55, fontSize: 15 }
 const UL: React.CSSProperties = { color: 'var(--muted)', lineHeight: 1.9, fontSize: 17, paddingLeft: 20, margin: '0 0 18px' }
+const MODEL_NAMES: Record<string, string> = {
+  'ep6_v8 (9,630 classes)': 'Fine-tuned (9,630 classes)',
+  'v24 (5,445 classes)': 'Pretrained (in use for matching)',
+  'ensemble (mean of both)': 'Both combined',
+}
 const pct = (v?: number) => (v === undefined ? '…' : `${(v * 100).toFixed(1)}%`)
 
 function Slide({ i, root, kicker, title, children }: { i: number; root: React.RefObject<HTMLDivElement | null>; kicker: string; title: string; children: React.ReactNode }) {
