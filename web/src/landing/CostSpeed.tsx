@@ -5,7 +5,7 @@ import { pub } from '../data'
 interface Bench { gpu: string; detect_track_fps_1080p: number; reid_crops_per_s: number; match_ms_vs_1M_vehicles: number }
 
 // Used RTX 3090 market price, Oct 2026 (USD), mid-range of eBay/market trackers.
-const GPU_PRICE = 1000
+const GPU_PRICE = 850 // C$, a used RTX 3090 (C$800-900 second hand)
 const SEARCH_MS = 36 // measured end to end: text query -> ranked crops, over the network
 
 /** Cost & speed: measured throughput on one RTX 3090 and what a city deployment would need. */
@@ -53,14 +53,14 @@ export default function CostSpeed() {
           <Slider label="Cameras" value={cams} min={10} max={1000} step={1} onChange={setCams} note={cams === 221 ? 'Vancouver today' : undefined} />
           <Slider label="Frames per second analysed" value={fps} min={2} max={30} step={1} onChange={setFps} />
           <p className="mono" style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.6, margin: '14px 0 0' }}>
-            {Math.round(gpuFps)} fps per GPU ÷ {fps} fps per camera = {perGpu} cameras per GPU. Used RTX 3090 ≈ US${GPU_PRICE.toLocaleString('en-US')}.
+            {Math.round(gpuFps)} fps per GPU ÷ {fps} fps per camera = {perGpu} cameras per GPU. Used RTX 3090 ≈ C${GPU_PRICE.toLocaleString('en-US')}.
           </p>
         </div>
         <div style={{ flex: '1 1 360px', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
           {[
             [`${gpus}`, `GPUs for ${cams} cameras, live`],
-            [`US$${cost.toLocaleString('en-US')}`, 'one-time GPU hardware'],
-            [`US$${Math.round(cost / cams)}`, 'per camera, one time'],
+            [`C$${cost.toLocaleString('en-US')}`, 'one-time GPU hardware'],
+            [`C$${Math.round(cost / cams)}`, 'per camera, one time'],
             [`${hourMinutes} min`, 'to search one hour of footage from one camera'],
           ].map(([v, l]) => (
             <div key={l} style={{ padding: 20, borderRadius: 12, border: '1px solid var(--teal)', background: 'rgba(94,234,212,.05)' }}>
