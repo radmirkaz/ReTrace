@@ -9,7 +9,7 @@ interface Metrics {
 }
 interface Curves { precision: number[]; recall: number[]; map50: number[]; map5095: number[]; epochs: number }
 
-const SLIDES = ['Overview', 'Detection', 'Re-identification', 'Smart search']
+const SLIDES = ['Overview', 'Detection', 'Re-identification', 'Smart search', 'Thank you']
 
 /** Full-screen technical presentation ("Under the hood"): snap-scrolling slides, arrow keys to move. */
 export default function Nerd({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -120,6 +120,19 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
                 ['Same car, more cameras', 'Any result opens its journey across the city.'],
               ]} />
             </Slide>
+
+            <section data-i={4} style={{ minHeight: '100vh', scrollSnapAlign: 'start', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '80px 28px 48px', background: 'radial-gradient(ellipse at 50% 45%, rgba(167,139,250,.10), transparent 60%)' }}>
+              <motion.div initial={{ opacity: 0, y: 34 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ root: deck, amount: 0.4 }} transition={{ duration: 0.6, ease: 'easeOut' }}>
+                <img src="/team/radmir.jpg" alt="Radmir Zosimov" style={{ display: 'block', margin: '0 auto', width: 'clamp(160px, 22vw, 240px)', aspectRatio: '1', objectFit: 'cover', borderRadius: '50%', border: '3px solid var(--violet)', boxShadow: '0 0 0 10px rgba(167,139,250,.10), 0 20px 60px rgba(0,0,0,.5)' }} />
+                <h2 style={{ fontSize: 'clamp(56px, 9vw, 112px)', lineHeight: 1, letterSpacing: -3, margin: '36px 0 14px' }}>
+                  Thank you<span style={{ color: 'var(--violet)' }}>!</span>
+                </h2>
+                <div style={{ fontSize: 'clamp(24px, 3vw, 34px)', fontWeight: 600, letterSpacing: -0.5 }}>Radmir Zosimov</div>
+                <div className="mono" style={{ marginTop: 14, fontSize: 'clamp(13px, 1.4vw, 16px)', color: 'var(--muted)', letterSpacing: 1 }}>
+                  <span style={{ color: 'var(--violet)' }}>12</span> hackathon wins &amp; podiums <span style={{ color: 'var(--dim)', margin: '0 10px' }}>·</span> <span style={{ color: 'var(--violet)' }}>7</span> Kaggle medals
+                </div>
+              </motion.div>
+            </section>
 
           </div>
         </motion.div>
