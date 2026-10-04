@@ -1,12 +1,12 @@
 {
  "reid_cityflow_s01": {
-  "ep6_v8 (9,630 classes)": {
+  "classifier (9,630 classes)": {
    "queries": 116,
    "rank1": 0.7414,
    "rank5": 0.8879,
    "mAP": 0.6532
   },
-  "v24 (5,445 classes)": {
+  "embeddings model (5,445 classes)": {
    "queries": 116,
    "rank1": 0.7328,
    "rank5": 0.8966,
@@ -19,7 +19,7 @@
    "mAP": 0.7331
   }
  },
- "reid_embedding_in_use": "v24",
+ "reid_embedding_in_use": "embeddings",
  "journey_matching_live_feeds": {
   "filter": {
    "body_min": 0.15,

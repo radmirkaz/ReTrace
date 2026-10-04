@@ -64,7 +64,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
                 { colour: 'var(--violet)', steps: ['Voice', 'Whisper', 'Colour / body / make', 'CLIP text', 'Rank + gate crops'] },
                 { colour: 'var(--amber)', steps: ['Selected car', 'Re-ID fingerprint', 'Body & colour gate', 'Mutual best match', 'Journey across cameras'] },
               ]} />
-              <Stats items={[['9,630', 'make / model / generation classes'], ['500k', 'training images'], ['18', 'camera feeds on the map'], ['~60 fps', 'detector on an RTX 3090, 4K']]} />
+              <Stats items={[['9,630', 'make / model / generation classes'], ['400k+', 'training images'], ['18', 'camera feeds on the map'], ['~60 fps', 'detector on an RTX 3090, 4K']]} />
             </Slide>
 
             <Slide i={1} root={deck} kicker="1 / Detection & tracking" title="See every vehicle, in every frame.">
@@ -89,22 +89,22 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               </Cols>
             </Slide>
 
-            <Slide i={2} root={deck} kicker="2 / Re-identification" title="500,000 images. A name and a fingerprint for every car.">
+            <Slide i={2} root={deck} kicker="2 / Re-identification" title="400,000+ images. A name and a fingerprint for every car.">
               <Stats items={[['9,630', 'models and generations'], ['900', 'brands, 1930s to 2025'], ['14,000+', 'unique vehicles seen'], ['91.6%', 'Acc@1, Stanford Cars']]} compact />
               <Cols>
                 <div>
                   <ul style={UL}>
-                    <li>Pretrained (top 2, MCS 2022), then fine-tuned on GigaFlexhicle + Google Images</li>
+                    <li>Two models trained together on GigaFlexhicle + Google Images: a 9,630-class classifier, and an embeddings model on a US/Canada-focused subset (5,445 classes) tuned for embedding quality</li>
                     <li>EfficientNetV2-M, 300×300, 2048-D embedding</li>
                     <li>Cross-entropy + contrastive + circle loss</li>
-                    <li>Make/model from the fine-tuned classifier; matching from the pretrained embedding</li>
+                    <li>Make/model from the classifier; matching from the embeddings model</li>
                     <li>92.6% MAP@5 on Stanford Cars (93.7% with class + embedding score)</li>
                   </ul>
                 </div>
                 <div>
                   <div className="label" style={{ color: 'var(--dim)', fontSize: 11, marginBottom: 10 }}>Cross-camera re-ID · CityFlowV2 S01 · 36 cars · 5 cameras</div>
                   {reid ? <Table head={['Embedding', 'Rank-1', 'Rank-5', 'mAP']} rows={Object.entries(reid).map(([k, r]) => [MODEL_NAMES[k] ?? k, pct(r.rank1), pct(r.rank5), pct(r.mAP)])} /> : <p style={P}>Benchmark loading…</p>}
-                  <p style={P}>Zero-shot: neither checkpoint has seen CityFlow.</p>
+                  <p style={P}>Zero-shot: neither model has seen CityFlow.</p>
                 </div>
               </Cols>
             </Slide>
@@ -130,8 +130,8 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
 const P: React.CSSProperties = { color: 'var(--muted)', lineHeight: 1.55, fontSize: 15 }
 const UL: React.CSSProperties = { color: 'var(--muted)', lineHeight: 1.9, fontSize: 17, paddingLeft: 20, margin: '0 0 18px' }
 const MODEL_NAMES: Record<string, string> = {
-  'ep6_v8 (9,630 classes)': 'Fine-tuned (9,630 classes)',
-  'v24 (5,445 classes)': 'Pretrained (in use for matching)',
+  'classifier (9,630 classes)': 'Classifier (9,630 classes)',
+  'embeddings model (5,445 classes)': 'Embeddings model (in use for matching)',
   'ensemble (mean of both)': 'Both combined',
 }
 const pct = (v?: number) => (v === undefined ? '…' : `${(v * 100).toFixed(1)}%`)
