@@ -73,8 +73,10 @@ export default function FollowCam({ src, tracks, track }: { src: string; tracks:
   const cv = view ?? { x: 0, y: 0, w: tracks.w, h: tracks.h }
   const b = box ?? cv
   const k = Math.min(0.65 * size.w / cv.w, 0.65 * size.h / cv.h, (size.w / tracks.w) * 6)
-  const left = size.w / 2 - (cv.x + cv.w / 2) * k
-  const top = size.h / 2 - (cv.y + cv.h / 2) * k
+  // Keep the zoomed video covering the view: near a frame edge the vehicle moves off-centre instead of showing black.
+  const fit = (pos: number, view: number, content: number) => (content <= view ? (view - content) / 2 : Math.min(0, Math.max(view - content, pos)))
+  const left = fit(size.w / 2 - (cv.x + cv.w / 2) * k, size.w, tracks.w * k)
+  const top = fit(size.h / 2 - (cv.y + cv.h / 2) * k, size.h, tracks.h * k)
 
   return (
     <div ref={frameEl} style={{ position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: 8, background: '#000', border: '1px solid var(--amber)' }}>
