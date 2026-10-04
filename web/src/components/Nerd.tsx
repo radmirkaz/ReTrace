@@ -94,7 +94,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
               <Cols>
                 <div>
                   <ul style={UL}>
-                    <li>Two models trained together on GigaFlexhicle + Google Images: a 9,630-class classifier, and an embeddings model on a US/Canada-focused subset (5,445 classes) tuned for embedding quality</li>
+                    <li>Two models, one architecture, on GigaFlexhicle + Google Images: a 9,630-class classifier, and an embeddings model on a US/Canada-focused subset (5,445 classes) tuned for embedding quality</li>
                     <li>EfficientNetV2-M, 300×300, 2048-D embedding</li>
                     <li>Cross-entropy + contrastive + circle loss</li>
                     <li>Make/model from the classifier; matching from the embeddings model</li>
@@ -116,6 +116,7 @@ export default function Nerd({ open, onClose }: { open: boolean; onClose: () => 
                 ['CLIP ViT-B/32', 'Ranks every crop against the description in a shared text-image space, zero-shot.'],
                 ['Attribute gate', 'Results must match the colour family and body group; a named make lifts matching cars.'],
                 ['Qwen3-4B metadata', 'Every class tagged with region, market and North American availability to steer predictions.'],
+                ['Photo or clip', 'Upload a picture or video: the detector finds the car, its best crops are fingerprinted and compared with every camera.'],
                 ['Same car, more cameras', 'Any result opens its journey across the city.'],
               ]} />
             </Slide>

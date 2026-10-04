@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Lightbox from '../components/Lightbox'
 import TrackedVideo from '../components/TrackedVideo'
-import { asset, getMode, loadCameras, loadTracks, loadVehicles, searchText, transcribe, vehicleTitle, type Camera, type Det, type SearchHit, type Tracks, type Vehicle } from '../data'
+import { asset, getMode, loadCameras, loadTracks, loadVehicles, searchPhoto, searchText, transcribe, vehicleTitle, type Camera, type Det, type PhotoHit, type PhotoQuery, type SearchHit, type Tracks, type Vehicle } from '../data'
 import FollowCam from './FollowCam'
 import VancouverMap from './VancouverMap'
 
@@ -18,7 +18,11 @@ export default function Live() {
   const [tracks, setTracks] = useState<Tracks | null>(null)
   const [dets, setDets] = useState<Det[]>([])
   const [gid, setGid] = useState<string>()
-  const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [hits, setHits] = useState<(SearchHit | PhotoHit)[] | null>(null)
+  const [photoQ, setPhotoQ] = useState<PhotoQuery | null>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoErr, setPhotoErr] = useState('')
+  const [drag, setDrag] = useState(false)
   const [zoom, setZoom] = useState<{ src: string; caption: string } | null>(null)
 
   useEffect(() => { Promise.all([loadCameras(), loadVehicles()]).then(([c, v]) => { setCameras(c); setVehicles(v) }) }, [])
@@ -41,12 +45,41 @@ export default function Live() {
   }
   const close = () => { setCamId(undefined); setGid(undefined) }
 
+  /** Search by an uploaded photo or clip: the backend finds the car in it and ranks every indexed vehicle. */
+  const searchFile = async (f: File) => {
+    if (!/^(image|video)\//.test(f.type) && !/\.(jpe?g|png|webp|mp4|mov|m4v|webm)$/i.test(f.name)) { setPhotoErr('Use a photo (JPG, PNG, WebP) or a video clip.'); return }
+    setPhotoErr('')
+    setPhotoBusy(true)
+    try {
+      const r = await searchPhoto(f)
+      setPhotoQ(r.query)
+      setHits(r.results)
+    } catch (e) {
+      setPhotoErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   return (
     <main style={{ display: 'flex', flexWrap: 'wrap', minHeight: FULL }}>
-      <div style={{ position: 'relative', flex: cam ? '0 1 40%' : '1 1 560px', minWidth: cam ? 320 : 0, height: FULL, minHeight: 520, borderRight: '1px solid var(--line)' }}>
+      <div
+        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrag(true) } }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrag(false) }}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) searchFile(f) }}
+        style={{ position: 'relative', flex: cam ? '0 1 40%' : '1 1 560px', minWidth: cam ? 320 : 0, height: FULL, minHeight: 520, borderRight: '1px solid var(--line)' }}
+      >
         <VancouverMap cameras={cameras} selected={camId} highlight={trail} focus={focus} onSelect={(id) => open(id)} />
-        <SearchBar onResults={setHits} compact={!!cam} />
-        {hits && <Results hits={hits} vehicles={vehicles} camName={camName} onPick={(h) => { open(h.cam, h.gid); setHits(null) }} onClose={() => setHits(null)} />}
+        <SearchBar onResults={(h) => { setHits(h); setPhotoQ(null) }} onFile={searchFile} fileBusy={photoBusy} fileError={photoErr} compact={!!cam} />
+        {hits && <Results hits={hits} query={photoQ} vehicles={vehicles} camName={camName} onPick={(h) => { open(h.cam, h.gid); setHits(null) }} onClose={() => { setHits(null); setPhotoQ(null) }} />}
+        {(drag || photoBusy) && (
+          <div style={{ position: 'absolute', inset: 12, zIndex: 20, display: 'grid', placeItems: 'center', borderRadius: 12, border: '2px dashed var(--teal)', background: 'rgba(7,11,18,.82)', pointerEvents: drag ? 'auto' : 'none', textAlign: 'center' }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 600 }}>{photoBusy ? 'Finding the car…' : 'Drop a photo or clip of a car'}</div>
+              <div className="mono" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{photoBusy ? 'detect · best crops · re-ID fingerprint · compare with every camera' : 'ReTrace finds it, then the most similar vehicles across every camera'}</div>
+            </div>
+          </div>
+        )}
         <div className="mono" style={{ position: 'absolute', left: 16, bottom: 14, fontSize: 11, color: 'var(--dim)' }}>
           <span className="blink" style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--rose)', marginRight: 6 }} />
           {cameras.length} CAMERAS ONLINE · {Object.keys(vehicles).length} VEHICLES INDEXED
@@ -57,7 +90,7 @@ export default function Live() {
         <aside style={{ flex: '0 1 420px', minWidth: 300, height: FULL, overflowY: 'auto', background: 'var(--panel)', padding: 28 }}>
           <div className="label" style={{ color: 'var(--teal)' }}>City of Vancouver</div>
           <h2 style={{ fontSize: 30, letterSpacing: -1, margin: '10px 0' }}>Pick a camera.</h2>
-          <p style={{ color: 'var(--muted)', lineHeight: 1.55 }}>Every feed runs detection, tracking and re-identification. Click a vehicle to follow it, see what it is and where else it was seen, or search by description or voice.</p>
+          <p style={{ color: 'var(--muted)', lineHeight: 1.55 }}>Every feed runs detection, tracking and re-identification. Click a vehicle to follow it, see what it is and where else it was seen, or search by description, voice, or a photo or clip of a car.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 18 }}>
             {cameras.map((c) => (
               <button key={c.id} className="btn" onClick={() => open(c.id)} style={{ justifyContent: 'space-between' }}>
@@ -262,11 +295,12 @@ function Strip({ cam, dets, tracks, vehicles, selected, onPick }: { cam: Camera;
   )
 }
 
-function SearchBar({ onResults, compact }: { onResults: (h: SearchHit[]) => void; compact: boolean }) {
+function SearchBar({ onResults, onFile, fileBusy, fileError, compact }: { onResults: (h: SearchHit[]) => void; onFile: (f: File) => void; fileBusy: boolean; fileError: string; compact: boolean }) {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState<'' | 'search' | 'listen'>('')
   const [note, setNote] = useState('')
   const rec = useRef<MediaRecorder | null>(null)
+  const fileIn = useRef<HTMLInputElement>(null)
 
   const run = async (text: string) => {
     if (!text.trim()) return
@@ -305,29 +339,43 @@ function SearchBar({ onResults, compact }: { onResults: (h: SearchHit[]) => void
   return (
     <form onSubmit={(e) => { e.preventDefault(); run(q) }} style={{ position: 'absolute', top: 16, left: 16, right: 16, maxWidth: 620, display: 'flex', gap: 8, alignItems: 'center', padding: 8, borderRadius: 10, background: 'rgba(10,15,22,.92)', border: '1px solid var(--line-2)', backdropFilter: 'blur(8px)' }}>
       {!compact && <label htmlFor="q" className="mono" style={{ fontSize: 11, color: 'var(--dim)', paddingLeft: 6 }}>FIND</label>}
-      <input id="q" aria-label="Describe a vehicle" value={q} onChange={(e) => setQ(e.target.value)} placeholder={compact ? 'Describe a vehicle…' : 'white pickup, dark SUV with roof rails…'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 15, fontFamily: 'var(--sans)', minHeight: 40 }} />
+      <input id="q" aria-label="Describe a vehicle" value={q} onChange={(e) => setQ(e.target.value)} placeholder={compact ? 'Describe a vehicle…' : 'white pickup, dark SUV… or drop a photo'} style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 15, fontFamily: 'var(--sans)', minHeight: 40 }} />
       <button type="button" className="btn" onClick={voice} aria-label={busy === 'listen' ? 'Stop recording' : 'Search by voice'} style={{ minHeight: 40, padding: '8px 12px', borderColor: busy === 'listen' ? 'var(--violet)' : undefined, color: busy === 'listen' ? 'var(--violet)' : undefined }}>
         {busy === 'listen' ? '■' : '🎙'}
       </button>
+      <button type="button" className="btn" onClick={() => fileIn.current?.click()} disabled={fileBusy} aria-label="Search by photo or video" title="Search by photo or video" style={{ minHeight: 40, padding: '8px 12px' }}>
+        {fileBusy ? '…' : '📷'}
+      </button>
+      <input ref={fileIn} type="file" accept="image/*,video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = '' }} />
       <button type="submit" className="btn btn-primary" style={{ minHeight: 40, padding: '8px 14px' }} disabled={busy === 'search'}>{busy === 'search' ? '…' : 'Search'}</button>
-      {note && <span className="mono" style={{ position: 'absolute', top: '100%', left: 8, marginTop: 6, fontSize: 11, color: 'var(--rose)' }}>{note}</span>}
+      {(note || fileError) && <span className="mono" style={{ position: 'absolute', top: '100%', left: 8, marginTop: 6, fontSize: 11, color: 'var(--rose)' }}>{note || fileError}</span>}
     </form>
   )
 }
 
-function Results({ hits, vehicles, camName, onPick, onClose }: { hits: SearchHit[]; vehicles: Record<string, Vehicle>; camName: (id: string) => string; onPick: (h: SearchHit) => void; onClose: () => void }) {
+function Results({ hits, query, vehicles, camName, onPick, onClose }: { hits: (SearchHit | PhotoHit)[]; query?: PhotoQuery | null; vehicles: Record<string, Vehicle>; camName: (id: string) => string; onPick: (h: SearchHit) => void; onClose: () => void }) {
   return (
     <div style={{ position: 'absolute', top: 80, left: 16, right: 16, maxWidth: 620, maxHeight: 'calc(100% - 140px)', overflowY: 'auto', padding: 12, borderRadius: 10, background: 'rgba(10,15,22,.96)', border: '1px solid var(--line-2)', zIndex: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span className="label" style={{ fontSize: 11, color: 'var(--dim)' }}>{hits.length} matches · click to open</span>
+        <span className="label" style={{ fontSize: 11, color: 'var(--dim)' }}>{query ? `${hits.length} most similar · re-ID` : `${hits.length} matches`} · click to open</span>
         <button className="btn" onClick={onClose} aria-label="Close results" style={{ minHeight: 32, padding: '4px 10px' }}>✕</button>
       </div>
+      {query && (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: 10, marginBottom: 10, borderRadius: 8, border: '1px solid var(--amber)', background: 'var(--panel-2)' }}>
+          <img src={query.crop} alt="Vehicle found in your upload" style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 4, flex: 'none' }} />
+          <div className="mono" style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--muted)' }}>
+            <div style={{ color: 'var(--amber)' }}>YOUR {query.source === 'video' ? `CLIP · ${query.frames} FRAMES · BEST ${query.crops} CROPS` : 'PHOTO'}</div>
+            <div style={{ color: 'var(--text)', fontSize: 13, fontFamily: 'var(--sans)' }}>{query.guess.p >= 0.2 ? `Looks like ${query.guess.name}` : 'Make and model uncertain'}{query.guess.p >= 0.2 && <span style={{ color: 'var(--dim)' }}> · {(query.guess.p * 100).toFixed(0)}%</span>}</div>
+            <div>{query.colour} · {query.body}{!query.found && ' · no vehicle detected, searched the whole image'}</div>
+          </div>
+        </div>
+      )}
       {!hits.length && <p style={{ color: 'var(--muted)' }}>No matches.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
         {hits.map((h, i) => {
           const v = vehicles[h.gid]
           return (
-            <button key={h.gid} onClick={() => onPick(h)} style={{ padding: 0, borderRadius: 6, overflow: 'hidden', border: `1px solid ${i ? 'var(--line)' : 'var(--amber)'}`, background: 'var(--panel-2)', cursor: 'pointer', textAlign: 'left' }}>
+            <button key={h.gid} onClick={() => onPick(h)} title={'match' in h && !h.match ? 'Different body type or colour' : undefined} style={{ padding: 0, borderRadius: 6, overflow: 'hidden', border: `1px solid ${i ? 'var(--line)' : 'var(--amber)'}`, background: 'var(--panel-2)', cursor: 'pointer', textAlign: 'left', opacity: 'match' in h && !h.match ? 0.5 : 1 }}>
               <img src={asset(h.crop)} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }} />
               <div className="mono" style={{ padding: '5px 7px', fontSize: 10, lineHeight: 1.5 }}>
                 {camName(h.cam)}<br />

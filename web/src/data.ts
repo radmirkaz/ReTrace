@@ -109,6 +109,28 @@ export async function transcribe(audio: Blob): Promise<string> {
   return ((await r.json()) as { text: string }).text
 }
 
+/** What the backend found in an uploaded photo or clip. */
+export interface PhotoQuery {
+  crop: string // data URL of the vehicle crop that was searched
+  source: 'photo' | 'video'
+  found: boolean // false: no vehicle detected, the whole image was used
+  frames: number
+  crops: number
+  body: string
+  colour: string
+  guess: { name: string; p: number }
+}
+export interface PhotoHit extends SearchHit { match: boolean }
+
+export async function searchPhoto(file: File): Promise<{ query: PhotoQuery; results: PhotoHit[] }> {
+  if (!API) throw new Error('Photo search needs the live backend')
+  const body = new FormData()
+  body.append('file', file, file.name)
+  const r = await fetch(`${API}/search/photo`, { method: 'POST', body, signal: AbortSignal.timeout(120000) })
+  if (!r.ok) throw new Error(((await r.json().catch(() => null)) as { detail?: string } | null)?.detail ?? 'Photo search failed')
+  return r.json()
+}
+
 /** Scenes and the traced car used by the landing page. */
 export interface LandingScene { cam: string; title: string; sub: string; clip: string; tracks: string; poster: string; res: string }
 export interface LandingData {

@@ -1,11 +1,12 @@
-"""ReTrace API: serves the indexed feeds and runs text/voice search on the GPU.
+"""ReTrace API: serves the indexed feeds and runs text, voice and photo/video search on the GPU.
 
-Run on the GPU PC from the repository root (canai env):
+Run on a CUDA machine from the repository root:
     uvicorn backend.app:app --host 0.0.0.0 --port 8000
 Then start the web app with VITE_API_URL=http://<pc-address>:8000.
 """
 import json
 import tempfile
+import threading
 from functools import lru_cache
 from pathlib import Path
 
@@ -81,6 +82,13 @@ def warm():
     clip()
     crop_index()
     attributes()
+    threading.Thread(target=_warm_photo, daemon=True).start()  # detector + re-ID models load in the background
+
+
+def _warm_photo():
+    from . import photo
+    photo.models()
+    photo.index()
 
 
 @app.get("/health")
@@ -157,3 +165,19 @@ async def transcribe(audio: UploadFile = File(...)):
     finally:
         Path(path).unlink(missing_ok=True)
     return {"text": text}
+
+
+MAX_UPLOAD = 200 * 1024 * 1024
+
+
+@app.post("/search/photo")
+def search_photo(file: UploadFile = File(...), k: int = 12):
+    """Find the vehicle in an uploaded photo or clip and rank every indexed vehicle by re-ID similarity."""
+    from . import photo
+    data = file.file.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD:
+        raise HTTPException(413, "File too large (200 MB max).")
+    try:
+        return photo.search_upload(data, file.filename or "", file.content_type or "", k)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
