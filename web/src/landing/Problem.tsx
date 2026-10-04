@@ -61,7 +61,18 @@ export default function Problem() {
             {[0, 1, 2].map((i) => <span key={i} style={{ width: 7, height: 7, borderRadius: 1, background: 'var(--amber)' }} />)}
           </div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--faint)', marginTop: 6 }}>221 traffic cameras, only 140 of them red-light / speed enforcement</div>
+          <div className="label" style={{ color: 'var(--dim)', fontSize: 11, margin: '22px 0 10px' }}>Area to cover, km²</div>
+          {([['Metro Vancouver', 2883, 'var(--amber)'], ['Moscow', 2562, 'var(--rose)'], ['Dubai (urban)', 1491, 'var(--teal)']] as const).map(([n, km, c]) => (
+            <div key={n} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 52px', gap: 10, alignItems: 'center', fontSize: 13, marginBottom: 6 }}>
+              <span>{n}</span>
+              <div style={{ height: 6, background: '#141c28', borderRadius: 3 }}><div style={{ height: '100%', width: `${(km / 2883) * 100 * Math.min(1, e * 1.2)}%`, background: c, borderRadius: 3, transition: 'width .4s' }} /></div>
+              <span className="mono" style={{ color: 'var(--dim)', textAlign: 'right' }}>{km.toLocaleString('en-US')}</span>
+            </div>
+          ))}
           <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, margin: '16px 0 0' }}>
+            Metro Vancouver is the largest of the three, with a fraction of the cameras.
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, margin: '10px 0 0' }}>
             More cameras is not the goal. ReTrace gets more out of the cameras a city has, and it indexes vehicles, not faces or plates.
           </p>
         </div>
