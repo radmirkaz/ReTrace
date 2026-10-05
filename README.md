@@ -1,5 +1,7 @@
 # ReTrace
 
+Best Solo Hack Award: https://devpost.com/software/retrace-p3i7kl
+
 Vehicle re-identification across city cameras. ReTrace detects and tracks every
 vehicle, recognises its make, model and generation, and finds a specific car by
 appearance, by a text description or by a witness's spoken statement, without
